@@ -23,27 +23,27 @@
 const { useState, useEffect, useRef, useCallback } = React;
 
 const C = {
-  bg: "#0B1E2E",
-  bgGradient: "linear-gradient(160deg,#0B1E2E 0%, #0A2A3D 55%, #06202E 100%)",
-  panel: "#0F2A3C",
-  panelDim: "rgba(15,42,60,0.4)",
-  panelBorder: "#1C4A63",
-  panelBorderDim: "rgba(28,74,99,0.5)",
+  bg: "#F5F7F9",
+  bgGradient: "linear-gradient(160deg,#FF2A38 0%, #E0182A 32%, #7A1240 55%, #0092D6 100%)",
+  panel: "#FFFFFF",
+  panelDim: "#EEF1F4",
+  panelBorder: "#DDE3E8",
+  panelBorderDim: "rgba(11,30,46,0.08)",
   blue: "#0092D6",
   blueHover: "#0077B0",
-  blueSoft: "rgba(0,146,214,0.2)",
+  blueSoft: "rgba(0,146,214,0.14)",
   red: "#FF2A38",
   redHover: "#E0182A",
-  redSoft: "rgba(255,42,56,0.14)",
+  redSoft: "rgba(255,42,56,0.10)",
   green: "#1F7A3D",
-  greenSoft: "rgba(31,122,61,0.13)",
+  greenSoft: "rgba(31,122,61,0.10)",
   purple: "#6C4FC4",
-  purpleSoft: "rgba(108,79,196,0.18)",
-  textMuted: "#8FB4C9",
-  textFaint: "#5A7A8C",
-  errorRed: "#FF6B6B",
-  white: "#FFFFFF",
-  track: "#2A2A2A",
+  purpleSoft: "rgba(108,79,196,0.12)",
+  textMuted: "#5A6B78",
+  textFaint: "#93A1AB",
+  errorRed: "#D0142A",
+  white: "#0B1E2E",
+  track: "#E1E5EA",
 };
 
 const DEMO_USERS = {
@@ -57,28 +57,28 @@ const TOPPING_TILES = [
   { code: "BBQ", label: "BBQ Sauce", color: "#6B3A1F" },
   { code: "RANCH", label: "Ranch", color: "#EDE8D9" },
   { code: "GPSAUCE", label: "Garlic Parm Sauce", color: "#D9CBA3" },
-  { code: "C", label: "Pizza Cheese", color: "#F4C542" },
-  { code: "CP", label: "Shredded Provolone", color: "#EDE6D6" },
-  { code: "E", label: "Cheddar Cheese Blend", color: "#F2A93B" },
-  { code: "FE", label: "Feta", color: "#F5F0DC" },
-  { code: "CS", label: "Parm/Asiago", color: "#EDE0B8" },
-  { code: "AM", label: "American Cheese", color: "#F7D774" },
-  { code: "P", label: "Pepperoni", color: "#A83232" },
-  { code: "H", label: "Ham", color: "#E8A0A0" },
-  { code: "K", label: "Bacon", color: "#8B3A3A" },
-  { code: "S", label: "Sausage", color: "#7A3E2A" },
-  { code: "B", label: "Beef", color: "#6B4226" },
-  { code: "DU", label: "Chicken", color: "#E0B98A" },
-  { code: "PM", label: "Philly Steak", color: "#9C5A3C" },
-  { code: "O", label: "Onion", color: "#D9C79E" },
-  { code: "G", label: "Green Pepper", color: "#3F7D3F" },
-  { code: "M", label: "Mushroom", color: "#8B6F47" },
-  { code: "R", label: "Black Olive", color: "#2B2B2B" },
-  { code: "Z", label: "Banana Pepper", color: "#D9C24C" },
-  { code: "J", label: "Jalapeño", color: "#4C8C3C" },
-  { code: "N", label: "Pineapple", color: "#E8D24C" },
-  { code: "SI", label: "Spinach", color: "#3F6B3F" },
-  { code: "TD", label: "Tomato", color: "#B84A3E" },
+  { code: "C", label: "Pizza Cheese", color: "#F0B429" },
+  { code: "CP", label: "Shredded Provolone", color: "#F0B429" },
+  { code: "E", label: "Cheddar Cheese Blend", color: "#F0B429" },
+  { code: "FE", label: "Feta", color: "#F0B429" },
+  { code: "CS", label: "Parm/Asiago", color: "#F0B429" },
+  { code: "AM", label: "American Cheese", color: "#F0B429" },
+  { code: "P", label: "Pepperoni", color: "#E2725B" },
+  { code: "H", label: "Ham", color: "#E2725B" },
+  { code: "K", label: "Bacon", color: "#B5651D" },
+  { code: "PM", label: "Philly Steak", color: "#B5651D" },
+  { code: "S", label: "Sausage", color: "#4FA8D1" },
+  { code: "B", label: "Beef", color: "#4FA8D1" },
+  { code: "DU", label: "Chicken", color: "#4FA8D1" },
+  { code: "M", label: "Mushroom", color: "#4FA8D1" },
+  { code: "N", label: "Pineapple", color: "#4FA8D1" },
+  { code: "TD", label: "Tomato", color: "#4FA8D1" },
+  { code: "O", label: "Onion", color: "#5CAE58" },
+  { code: "G", label: "Green Pepper", color: "#5CAE58" },
+  { code: "R", label: "Black Olive", color: "#5CAE58" },
+  { code: "Z", label: "Banana Pepper", color: "#5CAE58" },
+  { code: "J", label: "Jalapeño", color: "#5CAE58" },
+  { code: "SI", label: "Spinach", color: "#5CAE58" },
   { code: null, label: "Oregano", color: "#556B2F" },
   { code: null, label: "Garlic Herb Shake-on", color: "#C9B98A" },
 ];
@@ -746,7 +746,7 @@ function StudyCodesCard({ data }) {
             <div key={name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 12, padding: "12px 16px" }}>
               <span style={{ color: C.white, fontWeight: 600 }}>{name}</span>
               {code ? (
-                <span style={{ color: badgeColor, fontWeight: 900, fontSize: 18, background: withAlpha(badgeColor, 0.18), padding: "4px 12px", borderRadius: 8, letterSpacing: "0.05em" }}>{code}</span>
+                <span style={{ color: C.white, fontWeight: 900, fontSize: 18, background: withAlpha(badgeColor, 0.4), padding: "4px 12px", borderRadius: 8, letterSpacing: "0.05em" }}>{code}</span>
               ) : (
                 <span style={{ color: C.textFaint, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>No Code</span>
               )}
@@ -792,7 +792,7 @@ function StudyPortionCard({ data }) {
       {data.members && <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 8, lineHeight: 1.4 }}>{data.members.join(", ")}</p>}
       {data.note && <p style={{ color: C.textFaint, fontSize: 13, marginBottom: 16, lineHeight: 1.4 }}>{data.note}</p>}
       <div style={{ background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 12, overflow: "hidden", marginTop: (data.members || data.note) ? 0 : 16 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr", background: "rgba(255,255,255,0.04)", padding: "10px 12px", fontSize: 11, fontWeight: 800, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr", background: "rgba(11,30,46,0.04)", padding: "10px 12px", fontSize: 11, fontWeight: 800, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>
           <span></span><span style={{ textAlign: "center" }}>12"</span><span style={{ textAlign: "center" }}>14"</span><span style={{ textAlign: "center" }}>16"</span>
         </div>
         {data.rows.map((row) => (
@@ -845,7 +845,7 @@ function StudyGuide({ onFinish, onExit }) {
               🏠 Home
             </button>
           </div>
-          <div style={{ height: 6, background: C.panel, borderRadius: 999, overflow: "hidden" }}>
+          <div style={{ height: 6, background: C.track, borderRadius: 999, overflow: "hidden" }}>
             <div style={{ height: "100%", background: C.green, transition: "width 0.3s", width: `${((i + 1) / STUDY_CARDS.length) * 100}%` }} />
           </div>
         </div>
@@ -924,7 +924,7 @@ function QuestionShell({ index, total, correctCount, wrongCount, onEndSession, e
               </button>
             )}
           </div>
-          <div style={{ height: 6, background: C.panel, borderRadius: 999, overflow: "hidden" }}>
+          <div style={{ height: 6, background: C.track, borderRadius: 999, overflow: "hidden" }}>
             {total ? (
               <div style={{ height: "100%", background: C.blue, transition: "width 0.5s", width: `${(index / total) * 100}%` }} />
             ) : (
@@ -1027,7 +1027,7 @@ function CodeMCQuestion({ item, shellProps, onAnswer }) {
           <p style={{ fontSize: 40, fontWeight: 900, color: C.white, letterSpacing: "0.05em", margin: 0 }}>{item.code}</p>
         </div>
       </div>
-      <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 14, marginBottom: 12 }}>Which topping is this?</p>
+      <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 12 }}>Which topping is this?</p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
         {item.choices.map((c) => (
           <button key={c} onClick={() => choose(c)} disabled={locked} style={{ textAlign: "left", padding: "14px 16px", borderRadius: 12, background: C.panel, border: `1px solid ${C.panelBorder}`, color: C.white, fontWeight: 600, cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>
@@ -1070,7 +1070,7 @@ function CrustMCQuestion({ item, shellProps, onAnswer }) {
           <p style={{ fontSize: 26, fontWeight: 900, color: C.white, margin: 0 }}>{item.crust}</p>
         </div>
       </div>
-      <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 14, marginBottom: 12 }}>Which sizes does it come in?</p>
+      <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 12 }}>Which sizes does it come in?</p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
         {item.choices.map((c) => (
           <button key={c} onClick={() => choose(c)} disabled={locked} style={{ textAlign: "left", padding: "14px 16px", borderRadius: 12, background: C.panel, border: `1px solid ${C.panelBorder}`, color: C.white, fontWeight: 600, cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>
@@ -1208,7 +1208,7 @@ function PortionMCQuestion({ item, shellProps, onAnswer }) {
         </div>
       </div>
       <p style={{ color: C.textMuted, fontSize: 13, marginBottom: 16 }}>{item.context}</p>
-      <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 14, marginBottom: 12 }}>How many {item.unit} go on it?</p>
+      <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 12 }}>How many {item.unit} go on it?</p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         {item.choices.map((c) => (
           <button key={c} onClick={() => choose(c)} disabled={locked} style={{ textAlign: "center", padding: "16px 8px", borderRadius: 12, background: C.panel, border: `1px solid ${C.panelBorder}`, color: C.white, fontWeight: 800, fontSize: 20, cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>
@@ -1321,10 +1321,10 @@ function BuildQuestion({ item, shellProps, onAnswer }) {
         {TOPPING_TILES.map((t) => {
           const active = selected.includes(t.label);
           return (
-            <button key={t.label} onClick={() => toggle(t.label)} disabled={locked} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", borderRadius: 10, border: `1px solid ${active ? C.blue : C.panelBorder}`, background: active ? C.blueSoft : C.panel, color: active ? C.white : "rgba(255,255,255,0.8)", fontWeight: 600, fontSize: 13, cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>
+            <button key={t.label} onClick={() => toggle(t.label)} disabled={locked} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", borderRadius: 10, border: `1px solid ${active ? C.blue : C.panelBorder}`, background: active ? C.blueSoft : C.panel, color: active ? C.white : C.textMuted, fontWeight: 600, fontSize: 13, cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>
               <span style={{ width: 11, height: 11, borderRadius: "50%", background: t.color, flexShrink: 0, border: "1px solid rgba(0,0,0,0.15)" }} />
               <span style={{ flex: 1 }}>{t.label}</span>
-              {t.code && <span style={{ fontSize: 11, fontWeight: 800, color: C.textMuted, background: "rgba(255,255,255,0.06)", padding: "1px 6px", borderRadius: 6 }}>{t.code}</span>}
+              {t.code && <span style={{ fontSize: 11, fontWeight: 800, color: C.textMuted, background: "rgba(11,30,46,0.05)", padding: "1px 6px", borderRadius: 6 }}>{t.code}</span>}
             </button>
           );
         })}
@@ -1374,7 +1374,7 @@ function Results({ user, results, mode, onRestart, onPass }) {
             <span style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", color: C.textMuted, fontWeight: 700 }}>Manager Notification</span>
           </div>
           {!sent ? (
-            <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 14 }}>Sending results to {user.manager}…</p>
+            <p style={{ color: C.textFaint, fontSize: 14 }}>Sending results to {user.manager}…</p>
           ) : (
             <p style={{ color: C.white, fontSize: 14, margin: 0 }}>
               ✅ Emailed to <span style={{ fontWeight: 600 }}>{user.manager}</span> ({user.managerEmail}) — {user.name}, Store {user.store}, scored {pct}% ({subtitle}).
@@ -1385,7 +1385,7 @@ function Results({ user, results, mode, onRestart, onPass }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 24, maxHeight: 320, overflowY: "auto" }}>
           {results.map((r, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panelDim, borderRadius: 8, padding: "8px 12px", fontSize: 14 }}>
-              <span style={{ color: "rgba(255,255,255,0.7)" }}>Q{i + 1} · {r.type}</span>
+              <span style={{ color: C.textMuted }}>Q{i + 1} · {r.type}</span>
               <span>{r.correct ? "✅" : "❌"}</span>
             </div>
           ))}
