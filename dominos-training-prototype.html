@@ -1,0 +1,1390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Store Up — Training</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #0B1E2E; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; }
+  #root { min-height: 100vh; }
+  @keyframes pingOnce { 0% { transform: scale(0.7); opacity: 0.9; } 100% { transform: scale(1.4); opacity: 0; } }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const C = {
+  bg: "#0B1E2E",
+  bgGradient: "linear-gradient(160deg,#0B1E2E 0%, #0A2A3D 55%, #06202E 100%)",
+  panel: "#0F2A3C",
+  panelDim: "rgba(15,42,60,0.4)",
+  panelBorder: "#1C4A63",
+  panelBorderDim: "rgba(28,74,99,0.5)",
+  blue: "#0092D6",
+  blueHover: "#0077B0",
+  blueSoft: "rgba(0,146,214,0.2)",
+  red: "#FF2A38",
+  redHover: "#E0182A",
+  redSoft: "rgba(255,42,56,0.14)",
+  green: "#1F7A3D",
+  greenSoft: "rgba(31,122,61,0.13)",
+  purple: "#6C4FC4",
+  purpleSoft: "rgba(108,79,196,0.18)",
+  textMuted: "#8FB4C9",
+  textFaint: "#5A7A8C",
+  errorRed: "#FF6B6B",
+  white: "#FFFFFF",
+  track: "#2A2A2A",
+};
+
+const DEMO_USERS = {
+  jsmith: { password: "pizza123", name: "Jordan Smith", role: "New Hire", manager: "Store Manager", managerEmail: "manager@checkmatepizza.example" },
+  akhan: { password: "welcome1", name: "Amir Khan", role: "New Hire", manager: "Store Manager", managerEmail: "manager@checkmatepizza.example" },
+};
+
+const TOPPING_TILES = [
+  { code: "X", label: "Pizza Sauce", color: "#C8102E" },
+  { code: "XF", label: "Alfredo Sauce", color: "#E8D9A0" },
+  { code: "BBQ", label: "BBQ Sauce", color: "#6B3A1F" },
+  { code: "RANCH", label: "Ranch", color: "#EDE8D9" },
+  { code: "GPSAUCE", label: "Garlic Parm Sauce", color: "#D9CBA3" },
+  { code: "C", label: "Pizza Cheese", color: "#F4C542" },
+  { code: "CP", label: "Shredded Provolone", color: "#EDE6D6" },
+  { code: "E", label: "Cheddar Cheese Blend", color: "#F2A93B" },
+  { code: "FE", label: "Feta", color: "#F5F0DC" },
+  { code: "CS", label: "Parm/Asiago", color: "#EDE0B8" },
+  { code: "AM", label: "American Cheese", color: "#F7D774" },
+  { code: "P", label: "Pepperoni", color: "#A83232" },
+  { code: "H", label: "Ham", color: "#E8A0A0" },
+  { code: "K", label: "Bacon", color: "#8B3A3A" },
+  { code: "S", label: "Sausage", color: "#7A3E2A" },
+  { code: "B", label: "Beef", color: "#6B4226" },
+  { code: "DU", label: "Chicken", color: "#E0B98A" },
+  { code: "PM", label: "Philly Steak", color: "#9C5A3C" },
+  { code: "O", label: "Onion", color: "#D9C79E" },
+  { code: "G", label: "Green Pepper", color: "#3F7D3F" },
+  { code: "M", label: "Mushroom", color: "#8B6F47" },
+  { code: "R", label: "Black Olive", color: "#2B2B2B" },
+  { code: "Z", label: "Banana Pepper", color: "#D9C24C" },
+  { code: "J", label: "Jalapeño", color: "#4C8C3C" },
+  { code: "N", label: "Pineapple", color: "#E8D24C" },
+  { code: "SI", label: "Spinach", color: "#3F6B3F" },
+  { code: "TD", label: "Tomato", color: "#B84A3E" },
+  { code: null, label: "Oregano", color: "#556B2F" },
+  { code: null, label: "Garlic Herb Shake-on", color: "#C9B98A" },
+];
+const CODES = TOPPING_TILES.filter((t) => t.code);
+const byLabel = (label) => TOPPING_TILES.find((t) => t.label === label);
+
+const TOPPING_ALIASES = {
+  "Pizza Sauce": ["pizza sauce", "sauce"],
+  "Alfredo Sauce": ["alfredo sauce", "alfredo"],
+  "BBQ Sauce": ["bbq sauce", "bbq", "barbecue", "barbecue sauce"],
+  "Ranch": ["ranch"],
+  "Garlic Parm Sauce": ["garlic parm sauce", "garlic parm", "garlic parmesan"],
+  "Pizza Cheese": ["pizza cheese", "mozzarella"],
+  "Shredded Provolone": ["shredded provolone", "provolone"],
+  "Cheddar Cheese Blend": ["cheddar cheese blend", "cheddar", "cheddar cheese", "cheddar blend"],
+  "Feta": ["feta"],
+  "Parm/Asiago": ["parm/asiago", "parm asiago", "parmesan asiago", "parmesan", "asiago", "parm"],
+  "American Cheese": ["american cheese", "american"],
+  "Pepperoni": ["pepperoni"],
+  "Ham": ["ham"],
+  "Bacon": ["bacon"],
+  "Sausage": ["sausage", "italian sausage"],
+  "Beef": ["beef", "ground beef"],
+  "Chicken": ["chicken", "premium chicken"],
+  "Philly Steak": ["philly steak", "philly", "steak"],
+  "Onion": ["onion", "onions"],
+  "Green Pepper": ["green pepper", "green peppers"],
+  "Mushroom": ["mushroom", "mushrooms"],
+  "Black Olive": ["black olive", "black olives", "olives", "olive"],
+  "Banana Pepper": ["banana pepper", "banana peppers"],
+  "Jalapeño": ["jalapeño", "jalapeno", "jalapeños", "jalapenos"],
+  "Pineapple": ["pineapple"],
+  "Spinach": ["spinach"],
+  "Tomato": ["tomato", "tomatoes", "diced tomatoes"],
+  "Oregano": ["oregano"],
+  "Garlic Herb Shake-on": ["garlic herb shake-on", "garlic herb", "garlic herb shakeon"],
+};
+function matchesToppingName(typed, canonicalLabel) {
+  const t = typed.trim().toLowerCase();
+  const accepted = TOPPING_ALIASES[canonicalLabel] || [canonicalLabel.trim().toLowerCase()];
+  return accepted.includes(t);
+}
+
+const SPECIALTY_BUILDS = [
+  { name: "MEATZZA", subtitle: "4+ Top Specialty Pizza", correct: ["Pizza Sauce", "Pizza Cheese", "Pepperoni", "Ham", "Sausage", "Beef", "Shredded Provolone"] },
+  { name: "WISCONSIN 6 CHEESE", subtitle: "4+ Top Specialty Pizza", correct: ["Pizza Sauce", "Pizza Cheese", "Feta", "Shredded Provolone", "Cheddar Cheese Blend", "Parm/Asiago", "Oregano"] },
+  { name: "HONOLULU HAWAIIAN", subtitle: "4+ Top Specialty Pizza", correct: ["Pizza Sauce", "Pizza Cheese", "Ham", "Bacon", "Pineapple", "Green Pepper", "Shredded Provolone"] },
+  { name: "THE PEOPLE'S PIZZA — DELUXE", subtitle: "Specialty Pizza", correct: ["Pizza Sauce", "Pizza Cheese", "Pepperoni", "Onion", "Green Pepper", "Mushroom", "Sausage", "Shredded Provolone"] },
+  { name: "EXTRAVAGANZZA", subtitle: "4+ Top Specialty Pizza", correct: ["Pizza Sauce", "Pizza Cheese", "Pepperoni", "Ham", "Onion", "Green Pepper", "Mushroom", "Black Olive", "Sausage", "Beef", "Shredded Provolone"] },
+];
+
+const PORTION_GROUPS = [
+  {
+    key: "premium-meats", label: "Premium Meats",
+    members: ["Philly Steak", "Bacon"], unit: "oz",
+    tiers: {
+      "1-Topping": { 12: 2.5, 14: 3.5, 16: 5.0 },
+      "2-3 Topping": { 12: 2.0, 14: 2.5, 16: 3.5 },
+      "4+ Topping": { 12: 1.5, 14: 2.0, 16: 2.5 },
+    },
+  },
+  {
+    key: "sliced-meats", label: "Sliced Meats",
+    members: ["Pepperoni", "Ham"], unit: "slices",
+    tiers: {
+      "1-Topping": { 12: 30, 14: 40, 16: 54 },
+      "2-3 Topping": { 12: 24, 14: 32, 16: 46 },
+      "4+ Topping": { 12: 18, 14: 24, 16: 38 },
+    },
+  },
+  {
+    key: "heavy-toppings", label: "Heavy Toppings",
+    members: ["Sausage", "Beef", "Chicken", "Mushroom", "Pineapple", "Tomato"], unit: "oz",
+    tiers: {
+      "1-Topping": { 12: 3.5, 14: 5.0, 16: 6.5 },
+      "2-3 Topping": { 12: 2.5, 14: 3.5, 16: 4.5 },
+      "4+ Topping": { 12: 1.5, 14: 2.0, 16: 2.5 },
+    },
+  },
+  {
+    key: "veggies", label: "Veggies",
+    members: ["Onion", "Green Pepper", "Black Olive", "Banana Pepper", "Jalapeño"], unit: "oz",
+    tiers: {
+      "1-Topping": { 12: 2.0, 14: 3.0, 16: 4.0 },
+      "2-3 Topping": { 12: 1.5, 14: 2.0, 16: 2.5 },
+      "4+ Topping": { 12: 1.0, 14: 1.5, 16: 2.0 },
+    },
+  },
+  {
+    key: "spinach", label: "Spinach",
+    members: ["Spinach"], unit: "oz",
+    note: "No 4+ Topping tier exists on the board — 2-3 Topping is the largest offered.",
+    tiers: {
+      "1-Topping": { 12: 1.5, 14: 2.0, 16: 2.5 },
+      "2-3 Topping": { 12: 1.0, 14: 1.5, 16: 2.0 },
+    },
+  },
+];
+
+const FLAT_CHEESE = [
+  { name: "Cheddar Cheese Blend & Provolone", unit: "oz", sizes: { 12: 2.0, 14: 2.5, 16: 3.5 } },
+  { name: "American Cheese", unit: "slices", sizes: { 12: 6, 14: 7, 16: 9 } },
+  { name: "Parm/Asiago", unit: "oz", sizes: { 12: 1.5, 14: 2.0, 16: 2.5 } },
+  { name: "Feta", unit: "oz", sizes: { 12: 1.5, 14: 2.0, 16: 2.5 } },
+];
+
+const SIZES = [12, 14, 16];
+
+// STUDY GUIDE — self-paced reference cards, no timer.
+const STUDY_CODE_CATEGORIES = [
+  { title: "Sauces", items: [["Pizza Sauce", "X"], ["Alfredo Sauce", "XF"], ["BBQ Sauce", "BBQ"], ["Ranch", "RANCH"], ["Garlic Parm Sauce", "GPSAUCE"]] },
+  { title: "Cheeses", items: [["Pizza Cheese", "C"], ["Shredded Provolone", "CP"], ["Cheddar Cheese Blend", "E"], ["Feta", "FE"], ["Parm/Asiago", "CS"], ["American Cheese", "AM"]] },
+  { title: "Meats", items: [["Pepperoni", "P"], ["Ham", "H"], ["Bacon", "K"], ["Sausage", "S"], ["Beef", "B"], ["Chicken", "DU"], ["Philly Steak", "PM"]] },
+  { title: "Veggies & Fruit", items: [["Onion", "O"], ["Green Pepper", "G"], ["Mushroom", "M"], ["Black Olive", "R"], ["Banana Pepper", "Z"], ["Jalapeño", "J"], ["Pineapple", "N"], ["Spinach", "SI"], ["Tomato", "TD"]] },
+  { title: "No Code — Build Knowledge Only", items: [["Oregano", null], ["Garlic Herb Shake-on", null]], note: "These don't get typed into the POS — you just need to know they belong on the build." },
+];
+
+const STUDY_PORTION_GROUPS = PORTION_GROUPS.map((g) => ({
+  title: g.label,
+  members: g.members,
+  unit: g.unit,
+  note: g.note,
+  rows: Object.keys(g.tiers).map((tier) => ({ tier, values: SIZES.map((s) => g.tiers[tier][s]) })),
+}));
+
+const STUDY_FLAT_CHEESE = {
+  title: "Flat Cheese Portions",
+  note: "Same regardless of topping count — scales by size only.",
+  rows: FLAT_CHEESE.map((f) => ({ tier: `${f.name} (${f.unit})`, values: SIZES.map((s) => f.sizes[s]) })),
+};
+
+const CRUST_SIZES = [
+  { crust: "Hand Tossed", sizes: ["Small", "Medium", "Large"] },
+  { crust: "Crunchy Thin", sizes: ["Medium", "Large"] },
+  { crust: "Gluten Free", sizes: ["Small"] },
+  { crust: "Handmade Pan", sizes: ["Medium"] },
+  { crust: "New York Style", sizes: ["Medium", "Large", "X-Large"] },
+  { crust: "Parmesan Stuffed", sizes: ["Medium"] },
+];
+function crustWeight(crust) {
+  if (crust === "Gluten Free") return 5;
+  if (crust === "New York Style") return 8;
+  return 20;
+}
+const CRUST_WEIGHTED_PAIRS = CRUST_SIZES.map((row) => [row, crustWeight(row.crust)]);
+
+const STUDY_CARDS = [
+  { kind: "crustSizes", data: { rows: CRUST_SIZES } },
+  ...STUDY_CODE_CATEGORIES.map((c) => ({ kind: "codes", data: c })),
+  ...SPECIALTY_BUILDS.map((b) => ({ kind: "build", data: b })),
+  ...STUDY_PORTION_GROUPS.map((g) => ({ kind: "portionTable", data: g })),
+  { kind: "portionTable", data: STUDY_FLAT_CHEESE },
+];
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
+function canonicalSizeToken(tok) {
+  if (["S", "SM", "SMALL"].includes(tok)) return "S";
+  if (["M", "MED", "MEDIUM"].includes(tok)) return "M";
+  if (["L", "LG", "LRG", "LARGE"].includes(tok)) return "L";
+  if (tok === "XL") return "XL";
+  return null;
+}
+function parseSizesInput(str) {
+  let s = str.toUpperCase().replace(/EXTRA[\s-]*LARGE/g, "XL").replace(/X[\s-]*LARGE/g, "XL");
+  const tokens = s.split(/[^A-Z]+/).filter(Boolean);
+  const set = new Set();
+  for (const tok of tokens) {
+    const canon = canonicalSizeToken(tok);
+    if (canon) set.add(canon);
+  }
+  return set;
+}
+function sizesSetEqual(a, b) {
+  if (a.size !== b.size) return false;
+  for (const v of a) if (!b.has(v)) return false;
+  return true;
+}
+function weightedPick(pairs) {
+  const total = pairs.reduce((s, [, w]) => s + w, 0);
+  let r = Math.random() * total;
+  for (const [v, w] of pairs) {
+    if (r < w) return v;
+    r -= w;
+  }
+  return pairs[pairs.length - 1][0];
+}
+const TIER_WEIGHTS = [["1-Topping", 42], ["2-3 Topping", 48], ["4+ Topping", 10]];
+const SIZE_WEIGHTS = [[12, 49], [14, 49], [16, 2]];
+function uniqueChoices(correct, pool) {
+  const set = new Set([String(correct)]);
+  for (const v of pool) {
+    if (set.size >= 4) break;
+    set.add(String(v));
+  }
+  return shuffle(Array.from(set));
+}
+
+function genCodeMC() {
+  const item = pick(CODES);
+  const others = shuffle(CODES.filter((c) => c.label !== item.label)).slice(0, 3).map((c) => c.label);
+  return { type: "Ticket Reading", kind: "mc", data: { code: item.code, answer: item.label, choices: shuffle([item.label, ...others]) } };
+}
+function genPortionMC() {
+  const group = pick(PORTION_GROUPS);
+  const size = weightedPick(SIZE_WEIGHTS);
+  const tierKeys = Object.keys(group.tiers);
+  const availableTierWeights = TIER_WEIGHTS.filter(([t]) => tierKeys.includes(t));
+  const tier = weightedPick(availableTierWeights);
+  const ingredient = pick(group.members);
+  const answer = group.tiers[tier][size];
+  const sameSizeOtherTiers = tierKeys.filter((t) => t !== tier).map((t) => group.tiers[t][size]);
+  const crossGroup = pick(PORTION_GROUPS.filter((g) => g.key !== group.key));
+  const crossTierKeys = Object.keys(crossGroup.tiers);
+  const crossTier = crossTierKeys.includes(tier) ? tier : pick(crossTierKeys);
+  const crossValue = crossGroup.tiers[crossTier][size];
+  const pool = [...sameSizeOtherTiers, crossValue, answer * 1.3].filter((v) => v !== null && v !== undefined);
+  const choices = uniqueChoices(answer, pool);
+  return { type: "Portion Recall", kind: "mc", data: { ingredient, unit: group.unit, context: `${size}" Pizza — ${tier}`, answer: String(answer), choices } };
+}
+function genFlatCheese() {
+  const item = pick(FLAT_CHEESE);
+  const size = weightedPick(SIZE_WEIGHTS);
+  const answer = item.sizes[size];
+  const otherSizes = SIZES.filter((s) => s !== size).map((s) => item.sizes[s]);
+  const crossItem = pick(FLAT_CHEESE.filter((f) => f.name !== item.name));
+  const pool = [...otherSizes, crossItem.sizes[size]];
+  const choices = uniqueChoices(answer, pool);
+  return { type: "Portion Recall", kind: "mc", data: { ingredient: item.name, unit: item.unit, context: `${size}" Pizza — All Pizzas`, answer: String(answer), choices } };
+}
+function genBuild() {
+  return { type: "Specialty Build", kind: "build", data: pick(SPECIALTY_BUILDS) };
+}
+function genCrustMC() {
+  const row = weightedPick(CRUST_WEIGHTED_PAIRS);
+  const answer = row.sizes.join(", ");
+  const others = shuffle(CRUST_SIZES.filter((r) => r.crust !== row.crust)).slice(0, 3).map((r) => r.sizes.join(", "));
+  const choices = uniqueChoices(answer, others);
+  return { type: "Crust & Size", kind: "mc", data: { crust: row.crust, answer, choices } };
+}
+function generateRandomQuestion() {
+  const roll = Math.random();
+  if (roll < 0.40) return genCodeMC();
+  if (roll < 0.70) return genPortionMC();
+  if (roll < 0.82) return genFlatCheese();
+  if (roll < 0.92) return genCrustMC();
+  return genBuild();
+}
+function questionIdentity(q) {
+  if (q.type === "Portion Recall") return `${q.type}|${q.data.ingredient}|${q.data.context}`;
+  if (q.type === "Crust & Size") return `${q.type}|${q.data.crust}`;
+  if (q.type === "Specialty Build") return `${q.type}|${q.data.name}`;
+  return `${q.type}|${q.data.code || q.data.name}`;
+}
+function generateNonRepeatingQuestion(prevQuestion) {
+  let q = generateRandomQuestion();
+  let attempts = 0;
+  while (prevQuestion && questionIdentity(q) === questionIdentity(prevQuestion) && attempts < 6) {
+    q = generateRandomQuestion();
+    attempts++;
+  }
+  return q;
+}
+
+const SAUCE_TILES = TOPPING_TILES.filter((t) => ["Pizza Sauce", "Alfredo Sauce", "BBQ Sauce", "Ranch", "Garlic Parm Sauce"].includes(t.label));
+
+function sampleWithoutReplacement(arr, n) {
+  const shuffled = shuffle(arr);
+  if (n <= shuffled.length) return shuffled.slice(0, n);
+  const out = [];
+  while (out.length < n) out.push(...shuffle(arr));
+  return out.slice(0, n);
+}
+function weightedSampleWithoutReplacement(pairs, n) {
+  let pool = [...pairs];
+  const chosen = [];
+  const count = Math.min(n, pool.length);
+  for (let i = 0; i < count; i++) {
+    const picked = weightedPick(pool);
+    chosen.push(picked);
+    pool = pool.filter(([item]) => item !== picked);
+  }
+  while (chosen.length < n) chosen.push(pick(pairs.map(([item]) => item)));
+  return chosen;
+}
+function sizeWeight(size) {
+  const found = SIZE_WEIGHTS.find(([s]) => s === size);
+  return found ? found[1] : 10;
+}
+function tierWeight(tier) {
+  const found = TIER_WEIGHTS.find(([t]) => t === tier);
+  return found ? found[1] : 10;
+}
+function makeCodeTypeQ(tile) {
+  return { type: "Code Recall", kind: "type", data: { name: tile.label, answer: tile.code } };
+}
+function makeReverseCodeTypeQ(tile) {
+  return { type: "Ticket Reading", kind: "type", data: { code: tile.code, answer: tile.label } };
+}
+function makeCrustTypeQ(row) {
+  return { type: "Crust & Size", kind: "type", data: { crust: row.crust, sizes: row.sizes } };
+}
+function enumeratePortionCombos(groups) {
+  const combos = [];
+  for (const group of groups) {
+    for (const tier of Object.keys(group.tiers)) {
+      for (const size of SIZES) {
+        for (const member of group.members) {
+          combos.push({ ingredient: member, unit: group.unit, tier, size, answer: group.tiers[tier][size] });
+        }
+      }
+    }
+  }
+  return combos;
+}
+function weightedPortionCombos(groups) {
+  return enumeratePortionCombos(groups).map((c) => [c, tierWeight(c.tier) * sizeWeight(c.size)]);
+}
+function makePortionTypeQFromCombo(c) {
+  return { type: "Portion Recall", kind: "type", data: { ingredient: c.ingredient, unit: c.unit, context: `${c.size}" Pizza — ${c.tier}`, answer: String(c.answer) } };
+}
+function enumerateFlatCheeseCombos() {
+  const combos = [];
+  for (const item of FLAT_CHEESE) {
+    for (const size of SIZES) {
+      combos.push({ ingredient: item.name, unit: item.unit, size, answer: item.sizes[size] });
+    }
+  }
+  return combos;
+}
+function weightedFlatCheeseCombos() {
+  return enumerateFlatCheeseCombos().map((c) => [c, sizeWeight(c.size)]);
+}
+function makeFlatCheeseTypeQFromCombo(c) {
+  return { type: "Portion Recall", kind: "type", data: { ingredient: c.ingredient, unit: c.unit, context: `${c.size}" Pizza — All Pizzas`, answer: String(c.answer) } };
+}
+
+const NEWHIRE_PORTION_GROUPS = PORTION_GROUPS.filter((g) => g.key === "sliced-meats" || g.key === "heavy-toppings");
+
+function generateNewHireCert() {
+  const crustQs = weightedSampleWithoutReplacement(CRUST_WEIGHTED_PAIRS, 4).map(makeCrustTypeQ);
+  const sauceQs = sampleWithoutReplacement(SAUCE_TILES, 3).map((t) => (Math.random() < 0.5 ? makeCodeTypeQ(t) : makeReverseCodeTypeQ(t)));
+  const portionQs = weightedSampleWithoutReplacement(weightedPortionCombos(NEWHIRE_PORTION_GROUPS), 8).map(makePortionTypeQFromCombo);
+  return shuffle([...crustQs, ...sauceQs, ...portionQs]);
+}
+
+const TOPPING_CODE_TILES = CODES.filter((t) => !SAUCE_TILES.includes(t));
+
+function generateCSRCert() {
+  const toppingCodeQs = sampleWithoutReplacement(TOPPING_CODE_TILES, 10).map((t) => (Math.random() < 0.5 ? makeCodeTypeQ(t) : makeReverseCodeTypeQ(t)));
+  const sauceCodeQs = sampleWithoutReplacement(SAUCE_TILES, 2).map((t) => (Math.random() < 0.5 ? makeCodeTypeQ(t) : makeReverseCodeTypeQ(t)));
+  const portionQs = weightedSampleWithoutReplacement(weightedPortionCombos(PORTION_GROUPS), 8).map(makePortionTypeQFromCombo);
+  const flatCheeseQs = weightedSampleWithoutReplacement(weightedFlatCheeseCombos(), 2).map(makeFlatCheeseTypeQFromCombo);
+  const crustQs = weightedSampleWithoutReplacement(CRUST_WEIGHTED_PAIRS, 2).map(makeCrustTypeQ);
+  const buildQs = sampleWithoutReplacement(SPECIALTY_BUILDS, 3).map((b) => ({ type: "Specialty Build", kind: "build", data: b }));
+  return shuffle([...toppingCodeQs, ...sauceCodeQs, ...portionQs, ...flatCheeseQs, ...crustQs, ...buildQs]);
+}
+
+const NEWHIRE_QUESTION_COUNT = 4 + 3 + 8;
+const CSR_QUESTION_COUNT = 10 + 2 + 8 + 2 + 2 + 3;
+
+function useCountdown(seconds, active, onExpire) {
+  const [timeLeft, setTimeLeft] = useState(seconds);
+  const expiredRef = useRef(false);
+
+  useEffect(() => {
+    setTimeLeft(seconds);
+    expiredRef.current = false;
+  }, [seconds, active]);
+
+  useEffect(() => {
+    if (!active) return;
+    if (timeLeft <= 0) {
+      if (!expiredRef.current) {
+        expiredRef.current = true;
+        onExpire();
+      }
+      return;
+    }
+    const t = setTimeout(() => setTimeLeft((v) => v - 1), 1000);
+    return () => clearTimeout(t);
+  }, [timeLeft, active, onExpire]);
+
+  return timeLeft;
+}
+
+function TimerRing({ timeLeft, total }) {
+  const pct = Math.max(0, timeLeft / total);
+  const r = 26;
+  const circ = 2 * Math.PI * r;
+  const urgent = timeLeft <= 3;
+  return (
+    <div style={{ position: "relative", width: 64, height: 64, flexShrink: 0 }}>
+      <svg width="64" height="64" viewBox="0 0 64 64" style={{ transform: "rotate(-90deg)" }}>
+        <circle cx="32" cy="32" r={r} fill="none" stroke={C.track} strokeWidth="6" />
+        <circle cx="32" cy="32" r={r} fill="none" stroke={urgent ? C.red : C.blue} strokeWidth="6" strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)} strokeLinecap="round" style={{ transition: "stroke-dashoffset 1s linear, stroke 0.3s" }} />
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 18, color: urgent ? C.red : C.white, animation: urgent ? "pulse 1s infinite" : "none" }}>
+        {timeLeft}
+      </div>
+    </div>
+  );
+}
+
+function Login({ onLogin }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [store, setStore] = useState("");
+  const [error, setError] = useState("");
+
+  const submit = (e) => {
+    if (e) e.preventDefault();
+    const key = username.trim().toLowerCase();
+    const known = DEMO_USERS[key];
+    const storeValue = store.trim() || "—";
+    if (known && known.password === password) {
+      setError("");
+      onLogin({ username: key, ...known, store: storeValue });
+      return;
+    }
+    if (username.trim() && password.trim()) {
+      setError("");
+      onLogin({ username: key || "guest", name: username.trim(), role: "New Hire", store: storeValue, manager: "Store Manager", managerEmail: "manager@checkmatepizza.example" });
+      return;
+    }
+    setError("Enter a username and password to continue.");
+  };
+
+  const inputStyle = { width: "100%", background: "#F4F6F8", border: "1px solid #DDE3E8", borderRadius: 8, padding: "11px 12px", color: "#0B1E2E", outline: "none", fontSize: 16, fontWeight: 600 };
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 20px",
+        background: "linear-gradient(160deg, #FF2A38 0%, #E0182A 32%, #7A1240 55%, #0092D6 100%)",
+      }}
+    >
+      <div style={{ width: "100%", maxWidth: 400 }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
+          <div style={{ width: 64, height: 64, borderRadius: 20, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14, background: "white", boxShadow: "0 10px 30px rgba(0,0,0,0.25)", fontSize: 30 }}>🍕</div>
+          <h1 style={{ fontSize: 34, fontWeight: 900, letterSpacing: "-0.03em", color: "white", margin: 0, textShadow: "0 2px 12px rgba(0,0,0,0.2)" }}>STORE UP</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+            <span style={{ width: 20, height: 3, borderRadius: 2, background: "white" }} />
+            <p style={{ color: "rgba(255,255,255,0.95)", fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 800, margin: 0 }}>Checkmate Pizza · Team Training</p>
+            <span style={{ width: 20, height: 3, borderRadius: 2, background: "white" }} />
+          </div>
+        </div>
+
+        <div style={{ background: "white", borderRadius: 20, padding: 26, boxShadow: "0 24px 60px rgba(0,0,0,0.35)" }}>
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "#5A7A8C", fontWeight: 800, display: "block", marginBottom: 6 }}>Username</label>
+            <input value={username} onChange={(e) => setUsername(e.target.value)} style={inputStyle} placeholder="jsmith" autoComplete="off" />
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "#5A7A8C", fontWeight: 800, display: "block", marginBottom: 6 }}>Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+              style={inputStyle}
+              placeholder="••••••••"
+            />
+          </div>
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "#5A7A8C", fontWeight: 800, display: "block", marginBottom: 6 }}>Store #</label>
+            <input
+              value={store}
+              onChange={(e) => setStore(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+              style={inputStyle}
+              placeholder="e.g. 4210"
+            />
+          </div>
+          {error && <p style={{ color: "#D0142A", fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{error}</p>}
+          <button
+            type="button"
+            onClick={() => submit()}
+            style={{ width: "100%", background: C.blue, color: "white", fontWeight: 800, fontSize: 15, padding: "13px 0", borderRadius: 10, border: "none", cursor: "pointer", letterSpacing: "0.02em", boxShadow: "0 6px 16px rgba(0,146,214,0.35)" }}
+          >
+            Sign In
+          </button>
+          <p style={{ textAlign: "center", color: "#8FA3AF", fontSize: 12, marginTop: 12, fontWeight: 600 }}>Demo: jsmith / pizza123</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Dashboard({ user, studyGuideViewed, newHirePassed, onStartStudy, onStartNewHire, onStartCSR, onStartEndless }) {
+  return (
+    <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg }}>
+      <div style={{ maxWidth: 512, margin: "0 auto" }}>
+        <p style={{ color: C.textMuted, fontSize: 14, textTransform: "uppercase", letterSpacing: "0.05em" }}>Welcome back</p>
+        <h1 style={{ fontSize: 30, fontWeight: 900, color: C.white, margin: "4px 0" }}>{user.name}</h1>
+        <p style={{ color: C.textFaint, fontSize: 14, marginBottom: 32 }}>Store {user.store} · {user.role}</p>
+
+        <div onClick={onStartStudy} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 16, padding: 20, display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: C.green, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>📖</div>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ color: C.white, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+              Study Guide
+              {studyGuideViewed && <span style={{ fontSize: 11, fontWeight: 700, color: C.green, background: C.greenSoft, padding: "2px 8px", borderRadius: 999 }}>✓ Completed</span>}
+            </h2>
+            <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>Crusts, codes, builds &amp; portions · self-paced, no timer</p>
+          </div>
+          <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
+        </div>
+
+        <div onClick={onStartEndless} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 16, padding: 20, display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: C.purple, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>∞</div>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ color: C.white, fontWeight: 700, margin: 0 }}>Endless Practice</h2>
+            <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>Unlimited drills · everything mixed in · stop anytime</p>
+          </div>
+          <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
+        </div>
+
+        <div onClick={onStartNewHire} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 16, padding: 20, display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: C.red, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>🏆</div>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ color: C.white, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+              New Hire Certification
+              {newHirePassed && <span style={{ fontSize: 11, fontWeight: 700, color: C.green, background: C.greenSoft, padding: "2px 8px", borderRadius: 999 }}>✓ Passed</span>}
+            </h2>
+            <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>{NEWHIRE_QUESTION_COUNT} questions · crusts, sauces &amp; basic portions · pass at 90%</p>
+          </div>
+          <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
+        </div>
+
+        {newHirePassed ? (
+          <div onClick={onStartCSR} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 16, padding: 20, display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: C.red, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>🏆</div>
+            <div style={{ flex: 1 }}>
+              <h2 style={{ color: C.white, fontWeight: 700, margin: 0 }}>CSR Certification</h2>
+              <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>{CSR_QUESTION_COUNT} questions · full codes, portions &amp; builds · pass at 90%</p>
+            </div>
+            <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
+          </div>
+        ) : (
+          <div style={{ background: C.panelDim, border: `1px solid ${C.panelBorderDim}`, borderRadius: 16, padding: 20, display: "flex", alignItems: "center", gap: 16, opacity: 0.6 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: C.panelBorder, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>🏆</div>
+            <div style={{ flex: 1 }}>
+              <h2 style={{ color: C.white, fontWeight: 700, margin: 0 }}>CSR Certification</h2>
+              <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>Pass New Hire Certification to unlock</p>
+            </div>
+            <span style={{ fontSize: 16 }}>🔒</span>
+          </div>
+        )}
+
+        <div style={{ marginTop: 14, background: C.panelDim, border: `1px solid ${C.panelBorderDim}`, borderRadius: 16, padding: 20, display: "flex", alignItems: "center", gap: 16, opacity: 0.5 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: C.panelBorder, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>🏆</div>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ color: C.white, fontWeight: 700, margin: 0 }}>Manager Checklist</h2>
+            <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>Coming soon</p>
+          </div>
+          <span style={{ fontSize: 16 }}>🔒</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StudyCrustCard({ data }) {
+  return (
+    <div>
+      <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, marginBottom: 4 }}>CSR Basics</p>
+      <h2 style={{ color: C.white, fontSize: 24, fontWeight: 900, margin: "0 0 16px" }}>Crust &amp; Size Availability</h2>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+        {data.rows.map((row) => (
+          <div key={row.crust} style={{ background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 12, padding: "12px 16px" }}>
+            <p style={{ color: C.white, fontWeight: 700, margin: "0 0 8px" }}>{row.crust}</p>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {row.sizes.map((s) => (
+                <span key={s} style={{ color: C.blue, fontWeight: 800, fontSize: 13, background: "rgba(0,120,174,0.15)", padding: "3px 10px", borderRadius: 6 }}>{s}</span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p style={{ color: C.textFaint, fontSize: 13, lineHeight: 1.5, background: C.panelDim, border: `1px solid ${C.panelBorderDim}`, borderRadius: 10, padding: 12 }}>
+        Specialty pizzas show Small/Medium/Large/X-Large on the menu board — that's the topping combo, not a size guarantee. The crust the customer picks still limits what sizes are actually available (e.g. a Meatzza on Crunchy Thin only comes in Medium or Large).
+      </p>
+    </div>
+  );
+}
+
+function StudyCodesCard({ data }) {
+  return (
+    <div>
+      <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, marginBottom: 4 }}>Topping Codes</p>
+      <h2 style={{ color: C.white, fontSize: 24, fontWeight: 900, margin: "0 0 16px" }}>{data.title}</h2>
+      {data.note && <p style={{ color: C.textMuted, fontSize: 13, marginBottom: 16, lineHeight: 1.4 }}>{data.note}</p>}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {data.items.map(([name, code]) => (
+          <div key={name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 12, padding: "12px 16px" }}>
+            <span style={{ color: C.white, fontWeight: 600 }}>{name}</span>
+            {code ? (
+              <span style={{ color: C.blue, fontWeight: 900, fontSize: 18, background: "rgba(0,120,174,0.15)", padding: "4px 12px", borderRadius: 8, letterSpacing: "0.05em" }}>{code}</span>
+            ) : (
+              <span style={{ color: C.textFaint, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>No Code</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StudyBuildCard({ data }) {
+  return (
+    <div>
+      <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, marginBottom: 4 }}>Specialty Build</p>
+      <h2 style={{ color: C.white, fontSize: 24, fontWeight: 900, margin: "0 0 4px" }}>{data.name}</h2>
+      <p style={{ color: C.textFaint, fontSize: 13, marginBottom: 20 }}>{data.subtitle}</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {data.correct.map((label) => {
+          const t = byLabel(label);
+          return (
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: 10, background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 12, padding: "12px 16px" }}>
+              <span style={{ width: 14, height: 14, borderRadius: "50%", background: t ? t.color : "#999", flexShrink: 0, border: "1px solid rgba(0,0,0,0.15)" }} />
+              <span style={{ color: C.white, fontWeight: 600, flex: 1 }}>{label}</span>
+              {t && t.code ? (
+                <span style={{ color: C.blue, fontWeight: 800, fontSize: 14, background: "rgba(0,120,174,0.15)", padding: "3px 10px", borderRadius: 6 }}>{t.code}</span>
+              ) : (
+                <span style={{ color: C.textFaint, fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>No Code</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function StudyPortionCard({ data }) {
+  return (
+    <div>
+      <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, marginBottom: 4 }}>Portion Weights</p>
+      <h2 style={{ color: C.white, fontSize: 24, fontWeight: 900, margin: "0 0 4px" }}>{data.title}{data.unit ? ` (${data.unit})` : ""}</h2>
+      {data.members && <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 8, lineHeight: 1.4 }}>{data.members.join(", ")}</p>}
+      {data.note && <p style={{ color: C.textFaint, fontSize: 13, marginBottom: 16, lineHeight: 1.4 }}>{data.note}</p>}
+      <div style={{ background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 12, overflow: "hidden", marginTop: (data.members || data.note) ? 0 : 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr", background: "rgba(255,255,255,0.04)", padding: "10px 12px", fontSize: 11, fontWeight: 800, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          <span></span><span style={{ textAlign: "center" }}>12"</span><span style={{ textAlign: "center" }}>14"</span><span style={{ textAlign: "center" }}>16"</span>
+        </div>
+        {data.rows.map((row) => (
+          <div key={row.tier} style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr", padding: "12px", borderTop: `1px solid ${C.panelBorder}`, fontSize: 14 }}>
+            <span style={{ color: C.white, fontWeight: 600 }}>{row.tier}</span>
+            {row.values.map((v, i) => (
+              <span key={i} style={{ color: C.blue, fontWeight: 800, textAlign: "center" }}>{v}</span>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StudyGuide({ onFinish }) {
+  const [i, setI] = useState(0);
+  const card = STUDY_CARDS[i];
+  const isLast = i === STUDY_CARDS.length - 1;
+
+  return (
+    <div style={{ minHeight: "100vh", padding: "40px 24px", display: "flex", flexDirection: "column", background: C.bg }}>
+      <div style={{ maxWidth: 512, margin: "0 auto", width: "100%", flex: 1, display: "flex", flexDirection: "column" }}>
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+            <span>Card {i + 1} of {STUDY_CARDS.length}</span>
+            <span>Study Guide</span>
+          </div>
+          <div style={{ height: 6, background: C.panel, borderRadius: 999, overflow: "hidden" }}>
+            <div style={{ height: "100%", background: C.green, transition: "width 0.3s", width: `${((i + 1) / STUDY_CARDS.length) * 100}%` }} />
+          </div>
+        </div>
+
+        <div style={{ flex: 1 }}>
+          {card.kind === "crustSizes" && <StudyCrustCard data={card.data} />}
+          {card.kind === "codes" && <StudyCodesCard data={card.data} />}
+          {card.kind === "build" && <StudyBuildCard data={card.data} />}
+          {card.kind === "portionTable" && <StudyPortionCard data={card.data} />}
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+          <button
+            onClick={() => setI((v) => Math.max(0, v - 1))}
+            disabled={i === 0}
+            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.panel, border: `1px solid ${C.panelBorder}`, color: C.white, fontWeight: 700, padding: "12px 0", borderRadius: 8, cursor: i === 0 ? "default" : "pointer", opacity: i === 0 ? 0.4 : 1, fontSize: 15 }}
+          >
+            ← Back
+          </button>
+          {isLast ? (
+            <button onClick={onFinish} style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.green, border: "none", color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 8, cursor: "pointer", fontSize: 15 }}>
+              Finish ✓
+            </button>
+          ) : (
+            <button onClick={() => setI((v) => Math.min(STUDY_CARDS.length - 1, v + 1))} style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.blue, border: "none", color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 8, cursor: "pointer", fontSize: 15 }}>
+              Next →
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function QuestionShell({ index, total, correctCount, wrongCount, onEndSession, children }) {
+  return (
+    <div style={{ minHeight: "100vh", padding: "40px 24px", display: "flex", flexDirection: "column", background: C.bg }}>
+      <div style={{ maxWidth: 512, margin: "0 auto", width: "100%", flex: 1, display: "flex", flexDirection: "column" }}>
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, color: C.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+            {total ? (
+              <span>Question {index + 1} of {total}</span>
+            ) : (
+              <span>Question {index + 1} · <span style={{ color: C.green }}>✓ {correctCount}</span> <span style={{ color: C.red }}>✗ {wrongCount}</span></span>
+            )}
+            {onEndSession && (
+              <button onClick={onEndSession} style={{ background: "none", border: `1px solid ${C.panelBorder}`, color: C.textMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 10px", borderRadius: 999, cursor: "pointer" }}>
+                End Session
+              </button>
+            )}
+          </div>
+          <div style={{ height: 6, background: C.panel, borderRadius: 999, overflow: "hidden" }}>
+            {total ? (
+              <div style={{ height: "100%", background: C.blue, transition: "width 0.5s", width: `${(index / total) * 100}%` }} />
+            ) : (
+              <div style={{ height: "100%", background: C.purple, width: "100%", opacity: 0.5 }} />
+            )}
+          </div>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function FeedbackFlash({ status }) {
+  if (!status) return null;
+  const isCorrect = status === "correct";
+  return (
+    <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", zIndex: 50 }}>
+      <div style={{ borderRadius: "50%", padding: 32, background: isCorrect ? C.green : C.red, animation: "pingOnce 0.7s ease-out forwards", boxShadow: "0 20px 40px rgba(0,0,0,0.4)", fontSize: 40 }}>
+        {isCorrect ? "✅" : "❌"}
+      </div>
+    </div>
+  );
+}
+
+function CodeTypeQuestion({ item, shellProps, onAnswer }) {
+  const [value, setValue] = useState("");
+  const [flash, setFlash] = useState(null);
+  const [locked, setLocked] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => { inputRef.current && inputRef.current.focus(); }, []);
+
+  const submit = useCallback((val) => {
+    if (locked) return;
+    setLocked(true);
+    const correct = val.trim().toUpperCase() === item.answer.toUpperCase();
+    setFlash(correct ? "correct" : "wrong");
+    setTimeout(() => onAnswer(correct), 700);
+  }, [locked, item.answer, onAnswer]);
+
+  const handleExpire = useCallback(() => submit(value), [submit, value]);
+  const timeLeft = useCountdown(10, !locked, handleExpire);
+
+  return (
+    <QuestionShell {...shellProps}>
+      <FeedbackFlash status={flash} />
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
+        <TimerRing timeLeft={timeLeft} total={10} />
+        <div>
+          <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Type the code for</p>
+          <p style={{ fontSize: 26, fontWeight: 900, color: C.white, margin: 0 }}>{item.name}</p>
+        </div>
+      </div>
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") submit(value); }}
+        disabled={locked}
+        maxLength={10}
+        style={{ width: "100%", background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: 12, padding: "16px", color: C.white, fontSize: 28, fontWeight: 900, letterSpacing: "0.3em", textAlign: "center", textTransform: "uppercase", outline: "none" }}
+        placeholder="CODE"
+      />
+      <button type="button" onClick={() => submit(value)} disabled={locked} style={{ marginTop: 16, width: "100%", background: C.blue, color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 8, border: "none", cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1, fontSize: 16 }}>
+        Submit
+      </button>
+    </QuestionShell>
+  );
+}
+
+function CodeMCQuestion({ item, shellProps, onAnswer }) {
+  const [flash, setFlash] = useState(null);
+  const [locked, setLocked] = useState(false);
+
+  const handleExpire = useCallback(() => {
+    if (locked) return;
+    setLocked(true);
+    setFlash("wrong");
+    setTimeout(() => onAnswer(false), 700);
+  }, [locked, onAnswer]);
+
+  const timeLeft = useCountdown(10, !locked, handleExpire);
+
+  const choose = (choice) => {
+    if (locked) return;
+    setLocked(true);
+    const correct = choice === item.answer;
+    setFlash(correct ? "correct" : "wrong");
+    setTimeout(() => onAnswer(correct), 700);
+  };
+
+  return (
+    <QuestionShell {...shellProps}>
+      <FeedbackFlash status={flash} />
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
+        <TimerRing timeLeft={timeLeft} total={10} />
+        <div>
+          <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Topping code</p>
+          <p style={{ fontSize: 40, fontWeight: 900, color: C.white, letterSpacing: "0.05em", margin: 0 }}>{item.code}</p>
+        </div>
+      </div>
+      <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 14, marginBottom: 12 }}>Which topping is this?</p>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
+        {item.choices.map((c) => (
+          <button key={c} onClick={() => choose(c)} disabled={locked} style={{ textAlign: "left", padding: "14px 16px", borderRadius: 12, background: C.panel, border: `1px solid ${C.panelBorder}`, color: C.white, fontWeight: 600, cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>
+            {c}
+          </button>
+        ))}
+      </div>
+    </QuestionShell>
+  );
+}
+
+function CrustMCQuestion({ item, shellProps, onAnswer }) {
+  const [flash, setFlash] = useState(null);
+  const [locked, setLocked] = useState(false);
+
+  const handleExpire = useCallback(() => {
+    if (locked) return;
+    setLocked(true);
+    setFlash("wrong");
+    setTimeout(() => onAnswer(false), 700);
+  }, [locked, onAnswer]);
+
+  const timeLeft = useCountdown(10, !locked, handleExpire);
+
+  const choose = (choice) => {
+    if (locked) return;
+    setLocked(true);
+    const correct = choice === item.answer;
+    setFlash(correct ? "correct" : "wrong");
+    setTimeout(() => onAnswer(correct), 700);
+  };
+
+  return (
+    <QuestionShell {...shellProps}>
+      <FeedbackFlash status={flash} />
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
+        <TimerRing timeLeft={timeLeft} total={10} />
+        <div>
+          <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Crust</p>
+          <p style={{ fontSize: 26, fontWeight: 900, color: C.white, margin: 0 }}>{item.crust}</p>
+        </div>
+      </div>
+      <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 14, marginBottom: 12 }}>Which sizes does it come in?</p>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
+        {item.choices.map((c) => (
+          <button key={c} onClick={() => choose(c)} disabled={locked} style={{ textAlign: "left", padding: "14px 16px", borderRadius: 12, background: C.panel, border: `1px solid ${C.panelBorder}`, color: C.white, fontWeight: 600, cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>
+            {c}
+          </button>
+        ))}
+      </div>
+    </QuestionShell>
+  );
+}
+
+function CrustTypeQuestion({ item, shellProps, onAnswer }) {
+  const [value, setValue] = useState("");
+  const [flash, setFlash] = useState(null);
+  const [locked, setLocked] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => { inputRef.current && inputRef.current.focus(); }, []);
+
+  const submit = useCallback((val) => {
+    if (locked) return;
+    setLocked(true);
+    const expected = parseSizesInput(item.sizes.join(" "));
+    const given = parseSizesInput(val);
+    const correct = given.size > 0 && sizesSetEqual(given, expected);
+    setFlash(correct ? "correct" : "wrong");
+    setTimeout(() => onAnswer(correct), 700);
+  }, [locked, item.sizes, onAnswer]);
+
+  const handleExpire = useCallback(() => submit(value), [submit, value]);
+  const timeLeft = useCountdown(10, !locked, handleExpire);
+
+  return (
+    <QuestionShell {...shellProps}>
+      <FeedbackFlash status={flash} />
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
+        <TimerRing timeLeft={timeLeft} total={10} />
+        <div>
+          <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Type the sizes for</p>
+          <p style={{ fontSize: 26, fontWeight: 900, color: C.white, margin: 0 }}>{item.crust}</p>
+        </div>
+      </div>
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") submit(value); }}
+        disabled={locked}
+        maxLength={40}
+        style={{ width: "100%", background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: 12, padding: "16px", color: C.white, fontSize: 20, fontWeight: 800, textAlign: "center", outline: "none" }}
+        placeholder="e.g. S, M, L"
+      />
+      <button type="button" onClick={() => submit(value)} disabled={locked} style={{ marginTop: 16, width: "100%", background: C.blue, color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 8, border: "none", cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1, fontSize: 16 }}>
+        Submit
+      </button>
+    </QuestionShell>
+  );
+}
+
+function CodeNameTypeQuestion({ item, shellProps, onAnswer }) {
+  const [value, setValue] = useState("");
+  const [flash, setFlash] = useState(null);
+  const [locked, setLocked] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => { inputRef.current && inputRef.current.focus(); }, []);
+
+  const submit = useCallback((val) => {
+    if (locked) return;
+    setLocked(true);
+    const correct = matchesToppingName(val, item.answer);
+    setFlash(correct ? "correct" : "wrong");
+    setTimeout(() => onAnswer(correct), 700);
+  }, [locked, item.answer, onAnswer]);
+
+  const handleExpire = useCallback(() => submit(value), [submit, value]);
+  const timeLeft = useCountdown(10, !locked, handleExpire);
+
+  return (
+    <QuestionShell {...shellProps}>
+      <FeedbackFlash status={flash} />
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
+        <TimerRing timeLeft={timeLeft} total={10} />
+        <div>
+          <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Topping code</p>
+          <p style={{ fontSize: 40, fontWeight: 900, color: C.white, letterSpacing: "0.05em", margin: 0 }}>{item.code}</p>
+        </div>
+      </div>
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") submit(value); }}
+        disabled={locked}
+        maxLength={30}
+        style={{ width: "100%", background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: 12, padding: "16px", color: C.white, fontSize: 20, fontWeight: 800, textAlign: "center", outline: "none" }}
+        placeholder="Type the topping name"
+      />
+      <button type="button" onClick={() => submit(value)} disabled={locked} style={{ marginTop: 16, width: "100%", background: C.blue, color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 8, border: "none", cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1, fontSize: 16 }}>
+        Submit
+      </button>
+    </QuestionShell>
+  );
+}
+
+function PortionMCQuestion({ item, shellProps, onAnswer }) {
+  const [flash, setFlash] = useState(null);
+  const [locked, setLocked] = useState(false);
+
+  const handleExpire = useCallback(() => {
+    if (locked) return;
+    setLocked(true);
+    setFlash("wrong");
+    setTimeout(() => onAnswer(false), 700);
+  }, [locked, onAnswer]);
+
+  const timeLeft = useCountdown(10, !locked, handleExpire);
+
+  const choose = (choice) => {
+    if (locked) return;
+    setLocked(true);
+    const correct = choice === item.answer;
+    setFlash(correct ? "correct" : "wrong");
+    setTimeout(() => onAnswer(correct), 700);
+  };
+
+  return (
+    <QuestionShell {...shellProps}>
+      <FeedbackFlash status={flash} />
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 8 }}>
+        <TimerRing timeLeft={timeLeft} total={10} />
+        <div>
+          <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Portion check</p>
+          <p style={{ fontSize: 26, fontWeight: 900, color: C.white, margin: 0 }}>{item.ingredient}</p>
+        </div>
+      </div>
+      <p style={{ color: C.textMuted, fontSize: 13, marginBottom: 16 }}>{item.context}</p>
+      <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 14, marginBottom: 12 }}>How many {item.unit} go on it?</p>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        {item.choices.map((c) => (
+          <button key={c} onClick={() => choose(c)} disabled={locked} style={{ textAlign: "center", padding: "16px 8px", borderRadius: 12, background: C.panel, border: `1px solid ${C.panelBorder}`, color: C.white, fontWeight: 800, fontSize: 20, cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>
+            {c} <span style={{ fontSize: 12, fontWeight: 500, color: C.textMuted }}>{item.unit}</span>
+          </button>
+        ))}
+      </div>
+    </QuestionShell>
+  );
+}
+
+function PortionTypeQuestion({ item, shellProps, onAnswer }) {
+  const [value, setValue] = useState("");
+  const [flash, setFlash] = useState(null);
+  const [locked, setLocked] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => { inputRef.current && inputRef.current.focus(); }, []);
+
+  const submit = useCallback((val) => {
+    if (locked) return;
+    setLocked(true);
+    const num = parseFloat(val);
+    const correct = !isNaN(num) && num === parseFloat(item.answer);
+    setFlash(correct ? "correct" : "wrong");
+    setTimeout(() => onAnswer(correct), 700);
+  }, [locked, item.answer, onAnswer]);
+
+  const handleExpire = useCallback(() => submit(value), [submit, value]);
+  const timeLeft = useCountdown(10, !locked, handleExpire);
+
+  return (
+    <QuestionShell {...shellProps}>
+      <FeedbackFlash status={flash} />
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 8 }}>
+        <TimerRing timeLeft={timeLeft} total={10} />
+        <div>
+          <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Type the portion ({item.unit})</p>
+          <p style={{ fontSize: 22, fontWeight: 900, color: C.white, margin: 0 }}>{item.ingredient}</p>
+        </div>
+      </div>
+      <p style={{ color: C.textMuted, fontSize: 13, marginBottom: 16 }}>{item.context}</p>
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") submit(value); }}
+        disabled={locked}
+        inputMode="decimal"
+        maxLength={5}
+        style={{ width: "100%", background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: 12, padding: "16px", color: C.white, fontSize: 24, fontWeight: 900, letterSpacing: "0.15em", textAlign: "center", outline: "none" }}
+        placeholder={item.unit.toUpperCase()}
+      />
+      <button type="button" onClick={() => submit(value)} disabled={locked} style={{ marginTop: 16, width: "100%", background: C.blue, color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 8, border: "none", cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1, fontSize: 16 }}>
+        Submit
+      </button>
+    </QuestionShell>
+  );
+}
+
+function BuildQuestion({ item, shellProps, onAnswer }) {
+  const [selected, setSelected] = useState([]);
+  const [flash, setFlash] = useState(null);
+  const [locked, setLocked] = useState(false);
+
+  const evaluate = useCallback((sel) => {
+    if (locked) return;
+    setLocked(true);
+    const correctSet = [...item.correct].sort().join(",");
+    const selSet = [...sel].sort().join(",");
+    const correct = correctSet === selSet;
+    setFlash(correct ? "correct" : "wrong");
+    setTimeout(() => onAnswer(correct), 800);
+  }, [locked, item.correct, onAnswer]);
+
+  const handleExpire = useCallback(() => evaluate(selected), [evaluate, selected]);
+  const timerSeconds = Math.max(15, item.correct.length * 2);
+  const timeLeft = useCountdown(timerSeconds, !locked, handleExpire);
+
+  const toggle = (label) => {
+    if (locked) return;
+    setSelected((s) => (s.includes(label) ? s.filter((x) => x !== label) : [...s, label]));
+  };
+
+  return (
+    <QuestionShell {...shellProps}>
+      <FeedbackFlash status={flash} />
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
+        <TimerRing timeLeft={timeLeft} total={timerSeconds} />
+        <div>
+          <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Build the order</p>
+          <p style={{ color: C.white, fontWeight: 900, fontSize: 20, lineHeight: 1.2, margin: 0 }}>{item.name}</p>
+          <p style={{ color: C.textFaint, fontSize: 12, margin: 0 }}>{item.subtitle}</p>
+        </div>
+      </div>
+
+      <div style={{ position: "relative", width: 176, height: 176, margin: "0 auto 20px" }}>
+        <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "radial-gradient(circle at 50% 45%, #E8B25C 0%, #D99A3E 55%, #C67F2A 100%)" }} />
+        <div style={{ position: "absolute", inset: 11, borderRadius: "50%", background: C.red, opacity: 0.85 }} />
+        <div style={{ position: "absolute", inset: 18, borderRadius: "50%", background: "#F4E4A6", opacity: 0.9 }} />
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 4, padding: 36 }}>
+          {selected.map((label) => {
+            const t = byLabel(label);
+            return <div key={label} style={{ width: 14, height: 14, borderRadius: "50%", background: t ? t.color : "#999", border: "1px solid rgba(0,0,0,0.2)" }} />;
+          })}
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, maxHeight: 280, overflowY: "auto", paddingRight: 2 }}>
+        {TOPPING_TILES.map((t) => {
+          const active = selected.includes(t.label);
+          return (
+            <button key={t.label} onClick={() => toggle(t.label)} disabled={locked} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", borderRadius: 10, border: `1px solid ${active ? C.blue : C.panelBorder}`, background: active ? C.blueSoft : C.panel, color: active ? C.white : "rgba(255,255,255,0.8)", fontWeight: 600, fontSize: 13, cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>
+              <span style={{ width: 11, height: 11, borderRadius: "50%", background: t.color, flexShrink: 0, border: "1px solid rgba(0,0,0,0.15)" }} />
+              <span style={{ flex: 1 }}>{t.label}</span>
+              {t.code && <span style={{ fontSize: 11, fontWeight: 800, color: C.textMuted, background: "rgba(255,255,255,0.06)", padding: "1px 6px", borderRadius: 6 }}>{t.code}</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      <button onClick={() => evaluate(selected)} disabled={locked || selected.length === 0} style={{ marginTop: 16, width: "100%", background: C.red, color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 8, border: "none", cursor: locked || selected.length === 0 ? "default" : "pointer", opacity: locked || selected.length === 0 ? 0.4 : 1, fontSize: 16 }}>
+        Confirm Build
+      </button>
+    </QuestionShell>
+  );
+}
+
+function Results({ user, results, mode, onRestart, onPass }) {
+  const total = results.length;
+  const correct = results.filter((r) => r.correct).length;
+  const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+  const isCertMode = mode === "newhire" || mode === "csr";
+  const pass = isCertMode ? pct >= 90 : true;
+  const [sent, setSent] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setSent(true), 1200);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (mode === "newhire" && pass && onPass) onPass();
+  }, [mode, pass, onPass]);
+
+  const title = isCertMode ? (pass ? "Certification Passed" : "Not Yet — Retake Needed") : "Practice Session Complete";
+  const subtitle = mode === "newhire" ? "New Hire Certification" : mode === "csr" ? "CSR Certification" : "Endless Practice";
+
+  return (
+    <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg }}>
+      <div style={{ maxWidth: 512, margin: "0 auto" }}>
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <div style={{ width: 96, height: 96, borderRadius: "50%", margin: "0 auto 16px", display: "flex", alignItems: "center", justifyContent: "center", border: `4px solid ${pass ? C.green : C.red}`, background: pass ? C.greenSoft : C.redSoft }}>
+            <span style={{ fontSize: 30, fontWeight: 900, color: C.white }}>{pct}%</span>
+          </div>
+          <h1 style={{ fontSize: 24, fontWeight: 900, color: C.white, margin: "0 0 4px" }}>{title}</h1>
+          <p style={{ color: C.textMuted, fontSize: 14, margin: 0 }}>{correct} of {total} correct · {subtitle}</p>
+        </div>
+
+        <div style={{ background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 16, padding: 16, marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <span>✉️</span>
+            <span style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", color: C.textMuted, fontWeight: 700 }}>Manager Notification</span>
+          </div>
+          {!sent ? (
+            <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 14 }}>Sending results to {user.manager}…</p>
+          ) : (
+            <p style={{ color: C.white, fontSize: 14, margin: 0 }}>
+              ✅ Emailed to <span style={{ fontWeight: 600 }}>{user.manager}</span> ({user.managerEmail}) — {user.name}, Store {user.store}, scored {pct}% ({subtitle}).
+            </p>
+          )}
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 24, maxHeight: 320, overflowY: "auto" }}>
+          {results.map((r, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panelDim, borderRadius: 8, padding: "8px 12px", fontSize: 14 }}>
+              <span style={{ color: "rgba(255,255,255,0.7)" }}>Q{i + 1} · {r.type}</span>
+              <span>{r.correct ? "✅" : "❌"}</span>
+            </div>
+          ))}
+        </div>
+
+        <button onClick={onRestart} style={{ width: "100%", background: C.blue, color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 16 }}>
+          {isCertMode && !pass ? "Retake Course" : "Back to Dashboard"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function renderQuestion(q, shellProps, onAnswer) {
+  const key = shellProps.index;
+  if (q.kind === "type" && q.type === "Code Recall") return <CodeTypeQuestion key={key} item={q.data} shellProps={shellProps} onAnswer={onAnswer} />;
+  if (q.kind === "mc" && q.type === "Ticket Reading") return <CodeMCQuestion key={key} item={q.data} shellProps={shellProps} onAnswer={onAnswer} />;
+  if (q.kind === "type" && q.type === "Ticket Reading") return <CodeNameTypeQuestion key={key} item={q.data} shellProps={shellProps} onAnswer={onAnswer} />;
+  if (q.kind === "mc" && q.type === "Crust & Size") return <CrustMCQuestion key={key} item={q.data} shellProps={shellProps} onAnswer={onAnswer} />;
+  if (q.kind === "type" && q.type === "Crust & Size") return <CrustTypeQuestion key={key} item={q.data} shellProps={shellProps} onAnswer={onAnswer} />;
+  if (q.kind === "mc" && q.type === "Portion Recall") return <PortionMCQuestion key={key} item={q.data} shellProps={shellProps} onAnswer={onAnswer} />;
+  if (q.kind === "type" && q.type === "Portion Recall") return <PortionTypeQuestion key={key} item={q.data} shellProps={shellProps} onAnswer={onAnswer} />;
+  if (q.kind === "build") return <BuildQuestion key={key} item={q.data} shellProps={shellProps} onAnswer={onAnswer} />;
+  return null;
+}
+
+function App() {
+  const [user, setUser] = useState(null);
+  const [screen, setScreen] = useState("login");
+  const [mode, setMode] = useState(null); // 'newhire' | 'csr' | 'endless'
+  const [qIndex, setQIndex] = useState(0);
+  const [results, setResults] = useState([]);
+  const [endlessQueue, setEndlessQueue] = useState([]);
+  const [certQuestions, setCertQuestions] = useState(null);
+  const [studyGuideViewed, setStudyGuideViewed] = useState(false);
+  const [newHirePassed, setNewHirePassed] = useState(false);
+
+  const startStudy = () => setScreen("studyguide");
+  const finishStudy = () => {
+    setStudyGuideViewed(true);
+    setScreen("dashboard");
+  };
+
+  const startNewHire = () => {
+    setMode("newhire");
+    setQIndex(0);
+    setResults([]);
+    setCertQuestions(generateNewHireCert());
+    setScreen("quiz");
+  };
+
+  const startCSR = () => {
+    if (!newHirePassed) return;
+    setMode("csr");
+    setQIndex(0);
+    setResults([]);
+    setCertQuestions(generateCSRCert());
+    setScreen("quiz");
+  };
+
+  const startEndless = () => {
+    setMode("endless");
+    setQIndex(0);
+    setResults([]);
+    setEndlessQueue([generateRandomQuestion()]);
+    setScreen("quiz");
+  };
+
+  const fixedQuestions = mode === "newhire" || mode === "csr" ? certQuestions : null;
+  const currentQuestion = fixedQuestions ? fixedQuestions[qIndex] : endlessQueue[qIndex];
+
+  const handleAnswer = (correct) => {
+    const q = currentQuestion;
+    const next = [...results, { type: q.type, correct }];
+    setResults(next);
+    if (fixedQuestions) {
+      if (qIndex + 1 < fixedQuestions.length) {
+        setQIndex(qIndex + 1);
+      } else {
+        setScreen("results");
+      }
+    } else {
+      setEndlessQueue((prev) => [...prev, generateNonRepeatingQuestion(q)]);
+      setQIndex(qIndex + 1);
+    }
+  };
+
+  const endSession = () => setScreen("results");
+
+  const correctCount = results.filter((r) => r.correct).length;
+  const wrongCount = results.length - correctCount;
+
+  return (
+    <div style={{ width: "100%", minHeight: "100vh" }}>
+      {screen === "login" && <Login onLogin={(u) => { setUser(u); setScreen("dashboard"); }} />}
+      {screen === "dashboard" && user && (
+        <Dashboard
+          user={user}
+          studyGuideViewed={studyGuideViewed}
+          newHirePassed={newHirePassed}
+          onStartStudy={startStudy}
+          onStartNewHire={startNewHire}
+          onStartCSR={startCSR}
+          onStartEndless={startEndless}
+        />
+      )}
+      {screen === "studyguide" && <StudyGuide onFinish={finishStudy} />}
+      {screen === "quiz" && currentQuestion && renderQuestion(
+        currentQuestion,
+        { index: qIndex, total: fixedQuestions ? fixedQuestions.length : null, correctCount, wrongCount, onEndSession: mode === "endless" ? endSession : null },
+        handleAnswer
+      )}
+      {screen === "results" && user && (
+        <Results user={user} results={results} mode={mode} onRestart={() => setScreen("dashboard")} onPass={() => setNewHirePassed(true)} />
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
