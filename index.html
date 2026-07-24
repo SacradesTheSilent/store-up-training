@@ -1285,7 +1285,7 @@ function BuildQuestion({ item, shellProps, onAnswer }) {
   }, [locked, item.correct, onAnswer]);
 
   const handleExpire = useCallback(() => evaluate(selected), [evaluate, selected]);
-  const timerSeconds = Math.max(15, item.correct.length * 2);
+  const timerSeconds = Math.max(20, Math.round(item.correct.length * 2.5));
   const timeLeft = useCountdown(timerSeconds, !locked, handleExpire);
 
   const toggle = (label) => {
@@ -1296,7 +1296,7 @@ function BuildQuestion({ item, shellProps, onAnswer }) {
   return (
     <QuestionShell {...shellProps}>
       <FeedbackFlash status={flash} />
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
         <TimerRing timeLeft={timeLeft} total={timerSeconds} />
         <div>
           <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Build the order</p>
