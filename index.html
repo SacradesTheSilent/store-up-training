@@ -84,6 +84,13 @@ const TOPPING_TILES = [
 ];
 const CODES = TOPPING_TILES.filter((t) => t.code);
 const byLabel = (label) => TOPPING_TILES.find((t) => t.label === label);
+function withAlpha(hex, alpha) {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 const TOPPING_ALIASES = {
   "Pizza Sauce": ["pizza sauce", "sauce"],
@@ -732,16 +739,20 @@ function StudyCodesCard({ data }) {
       <h2 style={{ color: C.white, fontSize: 24, fontWeight: 900, margin: "0 0 16px" }}>{data.title}</h2>
       {data.note && <p style={{ color: C.textMuted, fontSize: 13, marginBottom: 16, lineHeight: 1.4 }}>{data.note}</p>}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {data.items.map(([name, code]) => (
-          <div key={name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 12, padding: "12px 16px" }}>
-            <span style={{ color: C.white, fontWeight: 600 }}>{name}</span>
-            {code ? (
-              <span style={{ color: C.blue, fontWeight: 900, fontSize: 18, background: "rgba(0,120,174,0.15)", padding: "4px 12px", borderRadius: 8, letterSpacing: "0.05em" }}>{code}</span>
-            ) : (
-              <span style={{ color: C.textFaint, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>No Code</span>
-            )}
-          </div>
-        ))}
+        {data.items.map(([name, code]) => {
+          const tile = byLabel(name);
+          const badgeColor = tile ? tile.color : C.blue;
+          return (
+            <div key={name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 12, padding: "12px 16px" }}>
+              <span style={{ color: C.white, fontWeight: 600 }}>{name}</span>
+              {code ? (
+                <span style={{ color: badgeColor, fontWeight: 900, fontSize: 18, background: withAlpha(badgeColor, 0.18), padding: "4px 12px", borderRadius: 8, letterSpacing: "0.05em" }}>{code}</span>
+              ) : (
+                <span style={{ color: C.textFaint, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>No Code</span>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -819,7 +830,7 @@ function StudyPanBuildCard({ data }) {
   );
 }
 
-function StudyGuide({ onFinish }) {
+function StudyGuide({ onFinish, onExit }) {
   const [i, setI] = useState(0);
   const card = STUDY_CARDS[i];
   const isLast = i === STUDY_CARDS.length - 1;
@@ -828,9 +839,11 @@ function StudyGuide({ onFinish }) {
     <div style={{ minHeight: "100vh", padding: "40px 24px", display: "flex", flexDirection: "column", background: C.bg }}>
       <div style={{ maxWidth: 512, margin: "0 auto", width: "100%", flex: 1, display: "flex", flexDirection: "column" }}>
         <div style={{ marginBottom: 24 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, color: C.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
             <span>Card {i + 1} of {STUDY_CARDS.length}</span>
-            <span>Study Guide</span>
+            <button onClick={onExit} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: `1px solid ${C.panelBorder}`, color: C.textMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 10px", borderRadius: 999, cursor: "pointer" }}>
+              🏠 Home
+            </button>
           </div>
           <div style={{ height: 6, background: C.panel, borderRadius: 999, overflow: "hidden" }}>
             <div style={{ height: "100%", background: C.green, transition: "width 0.3s", width: `${((i + 1) / STUDY_CARDS.length) * 100}%` }} />
@@ -1488,7 +1501,7 @@ function App() {
           onStartEndless={startEndless}
         />
       )}
-      {screen === "studyguide" && <StudyGuide onFinish={finishStudy} />}
+      {screen === "studyguide" && <StudyGuide onFinish={finishStudy} onExit={() => setScreen("dashboard")} />}
       {screen === "quiz" && currentQuestion && renderQuestion(
         currentQuestion,
         { index: qIndex, total: fixedQuestions ? fixedQuestions.length : null, correctCount, wrongCount, onEndSession: mode === "endless" ? endSession : null, extraHeader: mode === "endless" ? <CategoryToggles enabled={enabledCategories} onToggle={toggleCategory} /> : null },
