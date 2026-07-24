@@ -319,13 +319,25 @@ function genCrustMC() {
   const choices = uniqueChoices(answer, others);
   return { type: "Crust & Size", kind: "mc", data: { crust: row.crust, answer, choices } };
 }
-function generateRandomQuestion() {
-  const roll = Math.random();
-  if (roll < 0.40) return genCodeMC();
-  if (roll < 0.70) return genPortionMC();
-  if (roll < 0.82) return genFlatCheese();
-  if (roll < 0.92) return genCrustMC();
-  return genBuild();
+
+const CATEGORY_META = [
+  { key: "codes", label: "Topping Codes", color: "#0092D6" },
+  { key: "portions", label: "Portions", color: "#FF2A38" },
+  { key: "cheese", label: "Flat Cheese", color: "#F2A93B" },
+  { key: "crust", label: "Crust & Size", color: "#1F7A3D" },
+  { key: "builds", label: "Builds", color: "#6C4FC4" },
+];
+const CATEGORY_GENERATORS = { codes: genCodeMC, portions: genPortionMC, cheese: genFlatCheese, crust: genCrustMC, builds: genBuild };
+const CATEGORY_BASE_WEIGHTS = { codes: 40, portions: 30, cheese: 12, crust: 10, builds: 8 };
+const DEFAULT_ENABLED_CATEGORIES = { codes: true, portions: true, cheese: true, crust: true, builds: true };
+
+function generateRandomQuestion(enabledCategories) {
+  const enabled = enabledCategories || DEFAULT_ENABLED_CATEGORIES;
+  let keys = Object.keys(CATEGORY_GENERATORS).filter((k) => enabled[k]);
+  if (keys.length === 0) keys = Object.keys(CATEGORY_GENERATORS);
+  const pairs = keys.map((k) => [k, CATEGORY_BASE_WEIGHTS[k]]);
+  const chosenKey = weightedPick(pairs);
+  return CATEGORY_GENERATORS[chosenKey]();
 }
 function questionIdentity(q) {
   if (q.type === "Portion Recall") return `${q.type}|${q.data.ingredient}|${q.data.context}`;
@@ -333,11 +345,11 @@ function questionIdentity(q) {
   if (q.type === "Specialty Build") return `${q.type}|${q.data.name}`;
   return `${q.type}|${q.data.code || q.data.name}`;
 }
-function generateNonRepeatingQuestion(prevQuestion) {
-  let q = generateRandomQuestion();
+function generateNonRepeatingQuestion(prevQuestion, enabledCategories) {
+  let q = generateRandomQuestion(enabledCategories);
   let attempts = 0;
   while (prevQuestion && questionIdentity(q) === questionIdentity(prevQuestion) && attempts < 6) {
-    q = generateRandomQuestion();
+    q = generateRandomQuestion(enabledCategories);
     attempts++;
   }
   return q;
@@ -786,10 +798,36 @@ function StudyGuide({ onFinish }) {
   );
 }
 
-function QuestionShell({ index, total, correctCount, wrongCount, onEndSession, children }) {
+function CategoryToggles({ enabled, onToggle }) {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+      {CATEGORY_META.map((c) => {
+        const active = enabled[c.key];
+        return (
+          <button
+            key={c.key}
+            onClick={() => onToggle(c.key)}
+            style={{
+              padding: "6px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700,
+              border: `1px solid ${active ? c.color : C.panelBorder}`,
+              background: active ? c.color : "transparent",
+              color: active ? "white" : C.textFaint,
+              cursor: "pointer", opacity: active ? 1 : 0.7,
+            }}
+          >
+            {c.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function QuestionShell({ index, total, correctCount, wrongCount, onEndSession, extraHeader, children }) {
   return (
     <div style={{ minHeight: "100vh", padding: "40px 24px", display: "flex", flexDirection: "column", background: C.bg }}>
       <div style={{ maxWidth: 512, margin: "0 auto", width: "100%", flex: 1, display: "flex", flexDirection: "column" }}>
+        {extraHeader}
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, color: C.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
             {total ? (
@@ -1301,6 +1339,15 @@ function App() {
   const [certQuestions, setCertQuestions] = useState(null);
   const [studyGuideViewed, setStudyGuideViewed] = useState(false);
   const [newHirePassed, setNewHirePassed] = useState(false);
+  const [enabledCategories, setEnabledCategories] = useState(DEFAULT_ENABLED_CATEGORIES);
+
+  const toggleCategory = (key) => {
+    setEnabledCategories((prev) => {
+      const activeCount = Object.values(prev).filter(Boolean).length;
+      if (prev[key] && activeCount <= 1) return prev;
+      return { ...prev, [key]: !prev[key] };
+    });
+  };
 
   const startStudy = () => setScreen("studyguide");
   const finishStudy = () => {
@@ -1329,7 +1376,7 @@ function App() {
     setMode("endless");
     setQIndex(0);
     setResults([]);
-    setEndlessQueue([generateRandomQuestion()]);
+    setEndlessQueue([generateRandomQuestion(enabledCategories)]);
     setScreen("quiz");
   };
 
@@ -1347,7 +1394,7 @@ function App() {
         setScreen("results");
       }
     } else {
-      setEndlessQueue((prev) => [...prev, generateNonRepeatingQuestion(q)]);
+      setEndlessQueue((prev) => [...prev, generateNonRepeatingQuestion(q, enabledCategories)]);
       setQIndex(qIndex + 1);
     }
   };
@@ -1374,7 +1421,7 @@ function App() {
       {screen === "studyguide" && <StudyGuide onFinish={finishStudy} />}
       {screen === "quiz" && currentQuestion && renderQuestion(
         currentQuestion,
-        { index: qIndex, total: fixedQuestions ? fixedQuestions.length : null, correctCount, wrongCount, onEndSession: mode === "endless" ? endSession : null },
+        { index: qIndex, total: fixedQuestions ? fixedQuestions.length : null, correctCount, wrongCount, onEndSession: mode === "endless" ? endSession : null, extraHeader: mode === "endless" ? <CategoryToggles enabled={enabledCategories} onToggle={toggleCategory} /> : null },
         handleAnswer
       )}
       {screen === "results" && user && (
