@@ -7,9 +7,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Bebas+Neue&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: #0B1E2E; }
+  html, body { margin: 0; padding: 0; background: #E3E6E8; }
   body { font-family: 'Helvetica Neue', Arial, sans-serif; }
   #root { min-height: 100vh; }
   @keyframes pingOnce { 0% { transform: scale(0.7); opacity: 0.9; } 100% { transform: scale(1.4); opacity: 0; } }
@@ -22,34 +23,76 @@
 <script type="text/babel" data-presets="react">
 const { useState, useEffect, useRef, useCallback } = React;
 
-const C = {
-  bg: "#F5F7F9",
+const LIGHT_THEME = {
+  bg: "#E3E6E8",
   bgGradient: "linear-gradient(160deg,#FF2A38 0%, #E0182A 32%, #7A1240 55%, #0092D6 100%)",
-  panel: "#FFFFFF",
-  panelDim: "#EEF1F4",
-  panelBorder: "#DDE3E8",
-  panelBorderDim: "rgba(11,30,46,0.08)",
+  panel: "#F4F5F6",
+  panelDim: "#DADDE0",
+  panelBorder: "#23262B",
+  panelBorderDim: "rgba(35,38,43,0.35)",
   blue: "#0092D6",
   blueHover: "#0077B0",
   blueSoft: "rgba(0,146,214,0.14)",
   red: "#FF2A38",
   redHover: "#E0182A",
-  redSoft: "rgba(255,42,56,0.10)",
+  redSoft: "rgba(255,42,56,0.12)",
   green: "#1F7A3D",
-  greenSoft: "rgba(31,122,61,0.10)",
+  greenSoft: "rgba(31,122,61,0.12)",
   purple: "#6C4FC4",
-  purpleSoft: "rgba(108,79,196,0.12)",
-  textMuted: "#5A6B78",
-  textFaint: "#93A1AB",
+  purpleSoft: "rgba(108,79,196,0.14)",
+  textMuted: "#5A6068",
+  textFaint: "#8A9098",
   errorRed: "#D0142A",
-  white: "#0B1E2E",
-  track: "#E1E5EA",
+  white: "#1A1D21",
+  track: "#C7CBCE",
+  displayFont: "'Barlow Condensed', sans-serif",
+  bodyFont: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  cardRadius: 8,
+  btnRadius: 6,
 };
 
-const DEMO_USERS = {
-  jsmith: { password: "pizza123", name: "Jordan Smith", role: "New Hire", manager: "Store Manager", managerEmail: "manager@checkmatepizza.example" },
-  akhan: { password: "welcome1", name: "Amir Khan", role: "New Hire", manager: "Store Manager", managerEmail: "manager@checkmatepizza.example" },
+const DARK_THEME = {
+  bg: "#0B0C0E",
+  bgGradient: "linear-gradient(160deg,#FF2A38 0%, #E0182A 32%, #7A1240 55%, #0092D6 100%)",
+  panel: "#17181B",
+  panelDim: "#101113",
+  panelBorder: "#2C2E33",
+  panelBorderDim: "rgba(44,46,51,0.5)",
+  blue: "#0092D6",
+  blueHover: "#0077B0",
+  blueSoft: "rgba(0,146,214,0.2)",
+  red: "#FF2A38",
+  redHover: "#E0182A",
+  redSoft: "rgba(255,42,56,0.18)",
+  green: "#2FA857",
+  greenSoft: "rgba(47,168,87,0.16)",
+  purple: "#8B6FE0",
+  purpleSoft: "rgba(139,111,224,0.2)",
+  textMuted: "#9BA1A8",
+  textFaint: "#666B72",
+  errorRed: "#FF5A6A",
+  white: "#F4F5F6",
+  track: "#26282C",
+  displayFont: "'Bebas Neue', sans-serif",
+  bodyFont: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  cardRadius: 4,
+  btnRadius: 4,
 };
+
+const C = Object.assign({}, LIGHT_THEME);
+function applyTheme(isDark) {
+  Object.assign(C, isDark ? DARK_THEME : LIGHT_THEME);
+}
+function pickBadgeText(hexBg) {
+  const h = hexBg.replace("#", "");
+  const r = parseInt(h.substring(0, 2), 16) / 255;
+  const g = parseInt(h.substring(2, 4), 16) / 255;
+  const b = parseInt(h.substring(4, 6), 16) / 255;
+  const lin = (c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  const luminance = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  const contrastWithWhite = (1.0 + 0.05) / (luminance + 0.05);
+  return contrastWithWhite >= 3.0 ? "#FFFFFF" : "#1A1D21";
+}
 
 const TOPPING_TILES = [
   { code: "X", label: "Pizza Sauce", color: "#C8102E" },
@@ -62,7 +105,7 @@ const TOPPING_TILES = [
   { code: "E", label: "Cheddar Cheese Blend", color: "#F0B429" },
   { code: "FE", label: "Feta", color: "#F0B429" },
   { code: "CS", label: "Parm/Asiago", color: "#F0B429" },
-  { code: "AM", label: "American Cheese", color: "#F0B429" },
+  { code: "AC", label: "American Cheese", color: "#F0B429" },
   { code: "P", label: "Pepperoni", color: "#E2725B" },
   { code: "H", label: "Ham", color: "#E2725B" },
   { code: "K", label: "Bacon", color: "#B5651D" },
@@ -84,6 +127,130 @@ const TOPPING_TILES = [
 ];
 const CODES = TOPPING_TILES.filter((t) => t.code);
 const byLabel = (label) => TOPPING_TILES.find((t) => t.label === label);
+
+// ---------------------------------------------------------------------------
+// SUPABASE — accounts + saved cert history. Only created when someone passes
+// CSR; before that everyone stays anonymous, same as always.
+// ---------------------------------------------------------------------------
+const SUPABASE_URL = "https://jucwofkcbrxlbwcvebiw.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_VkWGuvpxOgW1ruApnDb93Q_IS3vLWfb";
+const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/submit-cert-result`;
+const PENDING_INTENT_KEY = "storeup-pending-intent";
+const TIMER_WARNING_SEEN_KEY = "storeup-seen-timer-warning";
+const RESUME_KEY = "storeup-resume";
+
+let _supabaseClient = null;
+let _supabaseLoadPromise = null;
+function loadSupabaseClient() {
+  if (_supabaseClient) return Promise.resolve(_supabaseClient);
+  if (_supabaseLoadPromise) return _supabaseLoadPromise;
+  _supabaseLoadPromise = new Promise((resolve) => {
+    if (typeof window === "undefined") { resolve(null); return; }
+    if (window.supabase) {
+      _supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      resolve(_supabaseClient);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js";
+    script.onload = () => {
+      _supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      resolve(_supabaseClient);
+    };
+    script.onerror = () => resolve(null);
+    document.head.appendChild(script);
+  });
+  return _supabaseLoadPromise;
+}
+
+async function getCurrentSession() {
+  const client = await loadSupabaseClient();
+  if (!client) return null;
+  const { data } = await client.auth.getSession();
+  return data ? data.session : null;
+}
+
+async function saveCertResult({ name, store, examType, score, pass, correct, total }) {
+  const session = await getCurrentSession();
+  if (!session) return { error: "No active session" };
+  try {
+    const res = await fetch(EDGE_FUNCTION_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ name, store, examType, score, pass, correct, total }),
+    });
+    const json = await res.json();
+    if (!res.ok) return { error: json.error || "Failed to save" };
+    return { success: true };
+  } catch (e) {
+    return { error: String(e) };
+  }
+}
+
+async function fetchOwnProfile() {
+  const client = await loadSupabaseClient();
+  const session = await getCurrentSession();
+  if (!client || !session) return null;
+  const { data, error } = await client.from("profiles").select("*").eq("id", session.user.id).single();
+  if (error) return null;
+  return data;
+}
+
+async function fetchOwnCertHistory() {
+  const client = await loadSupabaseClient();
+  const session = await getCurrentSession();
+  if (!client || !session) return [];
+  const { data, error } = await client.from("cert_attempts").select("*").order("taken_at", { ascending: false });
+  if (error) return [];
+  return data || [];
+}
+
+function stashIntent(intent) {
+  try { localStorage.setItem(PENDING_INTENT_KEY, JSON.stringify(intent)); } catch (e) { /* ignore */ }
+}
+function readStashedIntent() {
+  try {
+    const raw = localStorage.getItem(PENDING_INTENT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+function clearStashedIntent() {
+  try { localStorage.removeItem(PENDING_INTENT_KEY); } catch (e) { /* ignore */ }
+}
+
+async function sendMagicLink(email, intent) {
+  const client = await loadSupabaseClient();
+  if (!client) return { error: "Couldn't load account system" };
+  stashIntent(intent);
+  const redirectTo = window.location.href.split("#")[0].split("?")[0];
+  const { error } = await client.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
+  if (error) {
+    clearStashedIntent();
+    return { error: error.message };
+  }
+  return { success: true };
+}
+
+function hasSeenTimerWarning() {
+  try { return localStorage.getItem(TIMER_WARNING_SEEN_KEY) === "1"; } catch (e) { return false; }
+}
+function markTimerWarningSeen() {
+  try { localStorage.setItem(TIMER_WARNING_SEEN_KEY, "1"); } catch (e) { /* ignore */ }
+}
+
+function saveResumeState(mode, certQuestions, qIndex, results) {
+  try { localStorage.setItem(RESUME_KEY, JSON.stringify({ mode, certQuestions, qIndex, results })); } catch (e) { /* ignore */ }
+}
+function loadResumeState() {
+  try {
+    const raw = localStorage.getItem(RESUME_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+function clearResumeState() {
+  try { localStorage.removeItem(RESUME_KEY); } catch (e) { /* ignore */ }
+}
+
 function withAlpha(hex, alpha) {
   const h = hex.replace("#", "");
   const r = parseInt(h.substring(0, 2), 16);
@@ -197,7 +364,7 @@ const SIZES = [12, 14, 16];
 // STUDY GUIDE — self-paced reference cards, no timer.
 const STUDY_CODE_CATEGORIES = [
   { title: "Sauces", items: [["Pizza Sauce", "X"], ["Alfredo Sauce", "XF"], ["BBQ Sauce", "BBQ"], ["Ranch", "RANCH"], ["Garlic Parm Sauce", "GPSAUCE"]] },
-  { title: "Cheeses", items: [["Pizza Cheese", "C"], ["Shredded Provolone", "CP"], ["Cheddar Cheese Blend", "E"], ["Feta", "FE"], ["Parm/Asiago", "CS"], ["American Cheese", "AM"]] },
+  { title: "Cheeses", items: [["Pizza Cheese", "C"], ["Shredded Provolone", "CP"], ["Cheddar Cheese Blend", "E"], ["Feta", "FE"], ["Parm/Asiago", "CS"], ["American Cheese", "AC"]] },
   { title: "Meats", items: [["Pepperoni", "P"], ["Ham", "H"], ["Bacon", "K"], ["Sausage", "S"], ["Beef", "B"], ["Chicken", "DU"], ["Philly Steak", "PM"]] },
   { title: "Veggies & Fruit", items: [["Onion", "O"], ["Green Pepper", "G"], ["Mushroom", "M"], ["Black Olive", "R"], ["Banana Pepper", "Z"], ["Jalapeño", "J"], ["Pineapple", "N"], ["Spinach", "SI"], ["Tomato", "TD"]] },
   { title: "No Code — Build Knowledge Only", items: [["Oregano", null], ["Garlic Herb Shake-on", null]], note: "These don't get typed into the POS — you just need to know they belong on the build." },
@@ -549,113 +716,207 @@ function TimerRing({ timeLeft, total }) {
   );
 }
 
-function Login({ onLogin }) {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [store, setStore] = useState("");
+function Login({ onLogin, initialName, initialStore }) {
+  const [name, setName] = useState(initialName || "");
+  const [store, setStore] = useState(initialStore || "");
   const [error, setError] = useState("");
+  const [showSignIn, setShowSignIn] = useState(false);
+  const [signInEmail, setSignInEmail] = useState("");
+  const [signInSent, setSignInSent] = useState(false);
+  const [signInError, setSignInError] = useState("");
 
   const submit = (e) => {
     if (e) e.preventDefault();
-    const key = username.trim().toLowerCase();
-    const known = DEMO_USERS[key];
-    const storeValue = store.trim() || "—";
-    if (known && known.password === password) {
-      setError("");
-      onLogin({ username: key, ...known, store: storeValue });
+    const cleanStore = store.trim();
+    if (!name.trim() || !cleanStore) {
+      setError("Enter your name and store number to continue.");
       return;
     }
-    if (username.trim() && password.trim()) {
-      setError("");
-      onLogin({ username: key || "guest", name: username.trim(), role: "New Hire", store: storeValue, manager: "Store Manager", managerEmail: "manager@checkmatepizza.example" });
-      return;
-    }
-    setError("Enter a username and password to continue.");
+    setError("");
+    onLogin({ name: name.trim(), store: cleanStore });
   };
 
-  const inputStyle = { width: "100%", background: "#F4F6F8", border: "1px solid #DDE3E8", borderRadius: 8, padding: "11px 12px", color: "#0B1E2E", outline: "none", fontSize: 16, fontWeight: 600 };
+  const handleSignIn = async () => {
+    if (!signInEmail.trim()) { setSignInError("Enter your email first."); return; }
+    setSignInError("");
+    const result = await sendMagicLink(signInEmail.trim(), { type: "sign-in" });
+    if (result.success) setSignInSent(true);
+    else setSignInError(result.error || "Something went wrong sending that.");
+  };
+
+  const inputStyle = { width: "100%", background: C.bg, border: `2px solid ${C.panelBorder}`, borderRadius: 4, padding: "11px 12px", color: C.white, outline: "none", fontSize: 16, fontWeight: 600, fontFamily: C.bodyFont };
+  const linkBtnStyle = { background: "none", border: "none", color: C.blue, fontWeight: 700, cursor: "pointer", padding: 0, fontSize: 13 };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 20px",
-        background: "linear-gradient(160deg, #FF2A38 0%, #E0182A 32%, #7A1240 55%, #0092D6 100%)",
-      }}
-    >
-      <div style={{ width: "100%", maxWidth: 400 }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
-          <div style={{ width: 64, height: 64, borderRadius: 20, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14, background: "white", boxShadow: "0 10px 30px rgba(0,0,0,0.25)", fontSize: 30 }}>🍕</div>
-          <h1 style={{ fontSize: 34, fontWeight: 900, letterSpacing: "-0.03em", color: "white", margin: 0, textShadow: "0 2px 12px rgba(0,0,0,0.2)" }}>STORE UP</h1>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-            <span style={{ width: 20, height: 3, borderRadius: 2, background: "white" }} />
-            <p style={{ color: "rgba(255,255,255,0.95)", fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 800, margin: 0 }}>Checkmate Pizza · Team Training</p>
-            <span style={{ width: 20, height: 3, borderRadius: 2, background: "white" }} />
-          </div>
-        </div>
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: C.bg }}>
+      <div style={{ background: C.red, padding: "44px 20px 22px", position: "relative" }}>
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 6, background: "repeating-linear-gradient(-45deg, #1A1D21 0 10px, #FF2A38 10px 20px)" }} />
+        <h1 style={{ fontFamily: C.displayFont, fontSize: 44, fontWeight: 800, color: "white", margin: 0, textTransform: "uppercase", letterSpacing: "0.01em", textAlign: "center" }}>Store Up</h1>
+        <p style={{ textAlign: "center", color: "rgba(255,255,255,0.9)", fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", margin: "6px 0 0" }}>Checkmate Pizza · Team Training</p>
+      </div>
 
-        <div style={{ background: "white", borderRadius: 20, padding: 26, boxShadow: "0 24px 60px rgba(0,0,0,0.35)" }}>
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "#5A7A8C", fontWeight: 800, display: "block", marginBottom: 6 }}>Username</label>
-            <input value={username} onChange={(e) => setUsername(e.target.value)} style={inputStyle} placeholder="jsmith" autoComplete="off" />
-          </div>
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "#5A7A8C", fontWeight: 800, display: "block", marginBottom: 6 }}>Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-              style={inputStyle}
-              placeholder="••••••••"
-            />
-          </div>
-          <div style={{ marginBottom: 18 }}>
-            <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "#5A7A8C", fontWeight: 800, display: "block", marginBottom: 6 }}>Store #</label>
-            <input
-              value={store}
-              onChange={(e) => setStore(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-              style={inputStyle}
-              placeholder="e.g. 4210"
-            />
-          </div>
-          {error && <p style={{ color: "#D0142A", fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{error}</p>}
-          <button
-            type="button"
-            onClick={() => submit()}
-            style={{ width: "100%", background: C.blue, color: "white", fontWeight: 800, fontSize: 15, padding: "13px 0", borderRadius: 10, border: "none", cursor: "pointer", letterSpacing: "0.02em", boxShadow: "0 6px 16px rgba(0,146,214,0.35)" }}
-          >
-            Sign In
-          </button>
-          <p style={{ textAlign: "center", color: "#8FA3AF", fontSize: 12, marginTop: 12, fontWeight: 600 }}>Demo: jsmith / pizza123</p>
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "32px 20px" }}>
+        <div style={{ width: "100%", maxWidth: 400, background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 26 }}>
+          {!showSignIn ? (
+            <React.Fragment>
+              <p style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.5, marginBottom: 18 }}>
+                A quick self-paced quiz on our menu, portions, and prep — study at your own pace, then test yourself. Pass the CSR certification and we'll know you're serious.
+              </p>
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: C.textMuted, fontWeight: 800, display: "block", marginBottom: 6 }}>Your Name</label>
+                <input value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} placeholder="Jordan Smith" autoComplete="off" />
+              </div>
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: C.textMuted, fontWeight: 800, display: "block", marginBottom: 6 }}>Store #</label>
+                <input
+                  value={store}
+                  onChange={(e) => setStore(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+                  style={inputStyle}
+                  placeholder="e.g. 4210"
+                  inputMode="numeric"
+                />
+              </div>
+              {error && <p style={{ color: C.errorRed, fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{error}</p>}
+              <button
+                type="button"
+                onClick={() => submit()}
+                style={{ width: "100%", background: C.blue, color: "white", fontFamily: C.displayFont, fontWeight: 700, fontSize: 16, textTransform: "uppercase", letterSpacing: "0.03em", padding: "13px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer" }}
+              >
+                Continue
+              </button>
+              <p style={{ textAlign: "center", marginTop: 14, fontSize: 13, color: C.textMuted }}>
+                Already have an account? <button onClick={() => setShowSignIn(true)} style={linkBtnStyle}>Sign in</button>
+              </p>
+            </React.Fragment>
+          ) : (
+            <React.Fragment>
+              {!signInSent ? (
+                <React.Fragment>
+                  <p style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.5, marginBottom: 18 }}>
+                    Enter the email your account was created with, and we'll send a link to sign in.
+                  </p>
+                  <div style={{ marginBottom: 18 }}>
+                    <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: C.textMuted, fontWeight: 800, display: "block", marginBottom: 6 }}>Email</label>
+                    <input
+                      value={signInEmail}
+                      onChange={(e) => setSignInEmail(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleSignIn(); }}
+                      style={inputStyle}
+                      placeholder="you@email.com"
+                    />
+                  </div>
+                  {signInError && <p style={{ color: C.errorRed, fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{signInError}</p>}
+                  <button
+                    type="button"
+                    onClick={handleSignIn}
+                    style={{ width: "100%", background: C.blue, color: "white", fontFamily: C.displayFont, fontWeight: 700, fontSize: 16, textTransform: "uppercase", letterSpacing: "0.03em", padding: "13px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer" }}
+                  >
+                    Send Magic Link
+                  </button>
+                </React.Fragment>
+              ) : (
+                <p style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.5, textAlign: "center" }}>
+                  Check your email for the link — it'll bring you right back here, signed in.
+                </p>
+              )}
+              <p style={{ textAlign: "center", marginTop: 14, fontSize: 13 }}>
+                <button onClick={() => { setShowSignIn(false); setSignInSent(false); setSignInError(""); }} style={linkBtnStyle}>← Back</button>
+              </p>
+            </React.Fragment>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function Dashboard({ user, studyGuideViewed, newHirePassed, onStartStudy, onStartNewHire, onStartCSR, onStartEndless }) {
+function ConfirmStore({ name, store, onConfirm, onBack }) {
   return (
-    <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg }}>
-      <div style={{ maxWidth: 512, margin: "0 auto" }}>
-        <p style={{ color: C.textMuted, fontSize: 14, textTransform: "uppercase", letterSpacing: "0.05em" }}>Welcome back</p>
-        <h1 style={{ fontSize: 30, fontWeight: 900, color: C.white, margin: "4px 0" }}>{user.name}</h1>
-        <p style={{ color: C.textFaint, fontSize: 14, marginBottom: 32 }}>Store {user.store} · {user.role}</p>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 20px", background: C.bg }}>
+      <div style={{ width: "100%", maxWidth: 400 }}>
+        <div style={{ background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 30, textAlign: "center" }}>
+          <p style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.08em", color: C.textMuted, fontWeight: 800, margin: "0 0 18px" }}>Double-check before you continue</p>
 
-        <div onClick={onStartStudy} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 16, padding: 20, display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: C.green, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>📖</div>
+          <p style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", color: C.textMuted, fontWeight: 700, margin: "0 0 4px" }}>Name</p>
+          <p style={{ fontFamily: C.displayFont, fontSize: 26, fontWeight: 800, color: C.white, margin: "0 0 20px", textTransform: "uppercase" }}>{name}</p>
+
+          <p style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", color: C.textMuted, fontWeight: 700, margin: "0 0 4px" }}>Store Number</p>
+          <p style={{ fontFamily: C.displayFont, fontSize: 48, fontWeight: 800, color: C.red, margin: "0 0 24px", letterSpacing: "0.02em" }}>#{store}</p>
+
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              onClick={onBack}
+              style={{ flex: 1, background: C.bg, color: C.white, fontWeight: 700, fontSize: 15, padding: "13px 0", borderRadius: C.btnRadius, border: `2px solid ${C.panelBorder}`, cursor: "pointer" }}
+            >
+              ← Fix Something
+            </button>
+            <button
+              onClick={onConfirm}
+              style={{ flex: 2, background: C.green, color: "white", fontWeight: 800, fontSize: 15, padding: "13px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer" }}
+            >
+              ✓ That's Right
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Dashboard({ user, studyGuideViewed, newHirePassed, isDark, onToggleDark, onStartStudy, onStartNewHire, onStartCSR, onStartEndless, hasAccountSession, onViewAccount, resumeState, onResume, onDiscardResume }) {
+  return (
+    <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg, fontFamily: C.bodyFont }}>
+      <div style={{ maxWidth: 512, margin: "0 auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <p style={{ color: C.textMuted, fontSize: 14, textTransform: "uppercase", letterSpacing: "0.05em" }}>Welcome back</p>
+            <h1 style={{ fontFamily: C.displayFont, fontSize: 36, fontWeight: 800, color: C.white, margin: "2px 0", textTransform: "uppercase", letterSpacing: "0.01em" }}>{user.name}</h1>
+            <p style={{ color: C.textFaint, fontSize: 14, marginBottom: hasAccountSession ? 8 : 32 }}>Store {user.store} · {user.role}</p>
+            {hasAccountSession && (
+              <button onClick={onViewAccount} style={{ background: "none", border: "none", color: C.blue, fontSize: 13, fontWeight: 700, padding: 0, cursor: "pointer", marginBottom: 32, display: "block" }}>
+                My Account →
+              </button>
+            )}
+          </div>
+          <button onClick={onToggleDark} style={{ display: "flex", alignItems: "center", gap: 6, background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: 6, padding: "6px 12px", cursor: "pointer", color: C.white, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", flexShrink: 0 }}>
+            {isDark ? "☀ Light" : "● Dark"}
+          </button>
+        </div>
+
+        {resumeState && (
+          <div style={{ background: C.blueSoft, border: `2px solid ${C.blue}`, borderRadius: C.cardRadius, padding: 16, marginBottom: 14 }}>
+            <p style={{ fontFamily: C.displayFont, fontSize: 18, fontWeight: 700, textTransform: "uppercase", color: C.white, margin: "0 0 4px" }}>
+              Unfinished {resumeState.mode === "newhire" ? "New Hire" : "CSR"} Certification
+            </p>
+            <p style={{ color: C.textMuted, fontSize: 13, marginBottom: 12 }}>
+              You stopped at question {resumeState.qIndex + 1} of {resumeState.certQuestions.length}.
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={onResume} style={{ flex: 2, background: C.blue, color: "white", fontWeight: 700, padding: "10px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer" }}>
+                Resume
+              </button>
+              <button onClick={onDiscardResume} style={{ flex: 1, background: "transparent", color: C.textMuted, fontWeight: 700, padding: "10px 0", borderRadius: C.btnRadius, border: `2px solid ${C.panelBorder}`, cursor: "pointer" }}>
+                Discard
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div onClick={onStartStudy} style={{ cursor: "pointer", background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 20, display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
+          <div style={{ width: 48, height: 48, borderRadius: C.cardRadius, background: C.green, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>📖</div>
           <div style={{ flex: 1 }}>
-            <h2 style={{ color: C.white, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+            <h2 style={{ fontFamily: C.displayFont, fontWeight: 700, fontSize: 20, textTransform: "uppercase", letterSpacing: "0.02em", color: C.white, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
               Study Guide
-              {studyGuideViewed && <span style={{ fontSize: 11, fontWeight: 700, color: C.green, background: C.greenSoft, padding: "2px 8px", borderRadius: 999 }}>✓ Completed</span>}
+              {studyGuideViewed && <span style={{ fontFamily: C.bodyFont, fontSize: 11, fontWeight: 700, color: C.green, background: C.greenSoft, padding: "2px 8px", borderRadius: 6 }}>✓ Completed</span>}
             </h2>
             <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>Crusts, codes, builds &amp; portions · self-paced, no timer</p>
           </div>
           <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
         </div>
 
-        <div onClick={onStartEndless} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 16, padding: 20, display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: C.purple, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>∞</div>
+        <div onClick={onStartEndless} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 6, background: C.purple, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>∞</div>
           <div style={{ flex: 1 }}>
             <h2 style={{ color: C.white, fontWeight: 700, margin: 0 }}>Endless Practice</h2>
             <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>Unlimited drills · everything mixed in · stop anytime</p>
@@ -663,12 +924,12 @@ function Dashboard({ user, studyGuideViewed, newHirePassed, onStartStudy, onStar
           <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
         </div>
 
-        <div onClick={onStartNewHire} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 16, padding: 20, display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: C.red, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>🏆</div>
+        <div onClick={onStartNewHire} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 6, background: C.red, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>🏆</div>
           <div style={{ flex: 1 }}>
             <h2 style={{ color: C.white, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
               New Hire Certification
-              {newHirePassed && <span style={{ fontSize: 11, fontWeight: 700, color: C.green, background: C.greenSoft, padding: "2px 8px", borderRadius: 999 }}>✓ Passed</span>}
+              {newHirePassed && <span style={{ fontSize: 11, fontWeight: 700, color: C.green, background: C.greenSoft, padding: "2px 8px", borderRadius: 6 }}>✓ Passed</span>}
             </h2>
             <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>{NEWHIRE_QUESTION_COUNT} questions · crusts, sauces &amp; basic portions · pass at 90%</p>
           </div>
@@ -676,8 +937,8 @@ function Dashboard({ user, studyGuideViewed, newHirePassed, onStartStudy, onStar
         </div>
 
         {newHirePassed ? (
-          <div onClick={onStartCSR} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 16, padding: 20, display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: C.red, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>🏆</div>
+          <div onClick={onStartCSR} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 6, background: C.red, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>🏆</div>
             <div style={{ flex: 1 }}>
               <h2 style={{ color: C.white, fontWeight: 700, margin: 0 }}>CSR Certification</h2>
               <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>{CSR_QUESTION_COUNT} questions · full codes, portions &amp; builds · pass at 90%</p>
@@ -685,8 +946,8 @@ function Dashboard({ user, studyGuideViewed, newHirePassed, onStartStudy, onStar
             <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
           </div>
         ) : (
-          <div style={{ background: C.panelDim, border: `1px solid ${C.panelBorderDim}`, borderRadius: 16, padding: 20, display: "flex", alignItems: "center", gap: 16, opacity: 0.6 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: C.panelBorder, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>🏆</div>
+          <div style={{ background: C.panelDim, border: `1px solid ${C.panelBorderDim}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16, opacity: 0.6 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 6, background: C.panelBorder, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>🏆</div>
             <div style={{ flex: 1 }}>
               <h2 style={{ color: C.white, fontWeight: 700, margin: 0 }}>CSR Certification</h2>
               <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>Pass New Hire Certification to unlock</p>
@@ -695,8 +956,8 @@ function Dashboard({ user, studyGuideViewed, newHirePassed, onStartStudy, onStar
           </div>
         )}
 
-        <div style={{ marginTop: 14, background: C.panelDim, border: `1px solid ${C.panelBorderDim}`, borderRadius: 16, padding: 20, display: "flex", alignItems: "center", gap: 16, opacity: 0.5 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: C.panelBorder, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>🏆</div>
+        <div style={{ marginTop: 14, background: C.panelDim, border: `1px solid ${C.panelBorderDim}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16, opacity: 0.5 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 6, background: C.panelBorder, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>🏆</div>
           <div style={{ flex: 1 }}>
             <h2 style={{ color: C.white, fontWeight: 700, margin: 0 }}>Manager Checklist</h2>
             <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>Coming soon</p>
@@ -715,17 +976,17 @@ function StudyCrustCard({ data }) {
       <h2 style={{ color: C.white, fontSize: 24, fontWeight: 900, margin: "0 0 16px" }}>Crust &amp; Size Availability</h2>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
         {data.rows.map((row) => (
-          <div key={row.crust} style={{ background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 12, padding: "12px 16px" }}>
+          <div key={row.crust} style={{ background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 6, padding: "12px 16px" }}>
             <p style={{ color: C.white, fontWeight: 700, margin: "0 0 8px" }}>{row.crust}</p>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {row.sizes.map((s) => (
-                <span key={s} style={{ color: C.blue, fontWeight: 800, fontSize: 13, background: "rgba(0,120,174,0.15)", padding: "3px 10px", borderRadius: 6 }}>{s}</span>
+                <span key={s} style={{ color: C.blue, fontWeight: 800, fontSize: 13, background: "rgba(0,120,174,0.15)", padding: "3px 10px", borderRadius: 4 }}>{s}</span>
               ))}
             </div>
           </div>
         ))}
       </div>
-      <p style={{ color: C.textFaint, fontSize: 13, lineHeight: 1.5, background: C.panelDim, border: `1px solid ${C.panelBorderDim}`, borderRadius: 10, padding: 12 }}>
+      <p style={{ color: C.textFaint, fontSize: 13, lineHeight: 1.5, background: C.panelDim, border: `1px solid ${C.panelBorderDim}`, borderRadius: 6, padding: 12 }}>
         Specialty pizzas show Small/Medium/Large/X-Large on the menu board — that's the topping combo, not a size guarantee. The crust the customer picks still limits what sizes are actually available (e.g. a Meatzza on Crunchy Thin only comes in Medium or Large).
       </p>
     </div>
@@ -736,17 +997,18 @@ function StudyCodesCard({ data }) {
   return (
     <div>
       <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, marginBottom: 4 }}>Topping Codes</p>
-      <h2 style={{ color: C.white, fontSize: 24, fontWeight: 900, margin: "0 0 16px" }}>{data.title}</h2>
+      <h2 style={{ fontFamily: C.displayFont, color: C.white, fontSize: 28, fontWeight: 800, textTransform: "uppercase", margin: "0 0 16px" }}>{data.title}</h2>
       {data.note && <p style={{ color: C.textMuted, fontSize: 13, marginBottom: 16, lineHeight: 1.4 }}>{data.note}</p>}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {data.items.map(([name, code]) => {
           const tile = byLabel(name);
           const badgeColor = tile ? tile.color : C.blue;
+          const badgeText = pickBadgeText(badgeColor);
           return (
-            <div key={name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 12, padding: "12px 16px" }}>
+            <div key={name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: "12px 16px" }}>
               <span style={{ color: C.white, fontWeight: 600 }}>{name}</span>
               {code ? (
-                <span style={{ color: C.white, fontWeight: 900, fontSize: 18, background: withAlpha(badgeColor, 0.4), padding: "4px 12px", borderRadius: 8, letterSpacing: "0.05em" }}>{code}</span>
+                <span style={{ fontFamily: C.displayFont, color: badgeText, fontWeight: 700, fontSize: 18, background: badgeColor, padding: "3px 12px", borderRadius: 3, letterSpacing: "0.03em" }}>{code}</span>
               ) : (
                 <span style={{ color: C.textFaint, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>No Code</span>
               )}
@@ -768,11 +1030,11 @@ function StudyBuildCard({ data }) {
         {data.correct.map((label) => {
           const t = byLabel(label);
           return (
-            <div key={label} style={{ display: "flex", alignItems: "center", gap: 10, background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 12, padding: "12px 16px" }}>
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: 10, background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 6, padding: "12px 16px" }}>
               <span style={{ width: 14, height: 14, borderRadius: "50%", background: t ? t.color : "#999", flexShrink: 0, border: "1px solid rgba(0,0,0,0.15)" }} />
               <span style={{ color: C.white, fontWeight: 600, flex: 1 }}>{label}</span>
               {t && t.code ? (
-                <span style={{ color: C.blue, fontWeight: 800, fontSize: 14, background: "rgba(0,120,174,0.15)", padding: "3px 10px", borderRadius: 6 }}>{t.code}</span>
+                <span style={{ color: C.blue, fontWeight: 800, fontSize: 14, background: "rgba(0,120,174,0.15)", padding: "3px 10px", borderRadius: 4 }}>{t.code}</span>
               ) : (
                 <span style={{ color: C.textFaint, fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>No Code</span>
               )}
@@ -791,7 +1053,7 @@ function StudyPortionCard({ data }) {
       <h2 style={{ color: C.white, fontSize: 24, fontWeight: 900, margin: "0 0 4px" }}>{data.title}{data.unit ? ` (${data.unit})` : ""}</h2>
       {data.members && <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 8, lineHeight: 1.4 }}>{data.members.join(", ")}</p>}
       {data.note && <p style={{ color: C.textFaint, fontSize: 13, marginBottom: 16, lineHeight: 1.4 }}>{data.note}</p>}
-      <div style={{ background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 12, overflow: "hidden", marginTop: (data.members || data.note) ? 0 : 16 }}>
+      <div style={{ background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 6, overflow: "hidden", marginTop: (data.members || data.note) ? 0 : 16 }}>
         <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr", background: "rgba(11,30,46,0.04)", padding: "10px 12px", fontSize: 11, fontWeight: 800, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>
           <span></span><span style={{ textAlign: "center" }}>12"</span><span style={{ textAlign: "center" }}>14"</span><span style={{ textAlign: "center" }}>16"</span>
         </div>
@@ -815,14 +1077,14 @@ function StudyPanBuildCard({ data }) {
       <h2 style={{ color: C.white, fontSize: 24, fontWeight: 900, margin: "0 0 16px" }}>{data.title}</h2>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
         {data.items.map((item) => (
-          <div key={item.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 12, padding: "12px 16px" }}>
+          <div key={item.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 6, padding: "12px 16px" }}>
             <span style={{ color: C.white, fontWeight: 600 }}>{item.name}</span>
             <span style={{ color: C.blue, fontWeight: 800, fontSize: 16 }}>{item.value} {item.unit}</span>
           </div>
         ))}
       </div>
       {data.note && (
-        <p style={{ color: C.textFaint, fontSize: 13, lineHeight: 1.5, background: C.panelDim, border: `1px solid ${C.panelBorderDim}`, borderRadius: 10, padding: 12 }}>
+        <p style={{ color: C.textFaint, fontSize: 13, lineHeight: 1.5, background: C.panelDim, border: `1px solid ${C.panelBorderDim}`, borderRadius: 6, padding: 12 }}>
           {data.note}
         </p>
       )}
@@ -841,11 +1103,11 @@ function StudyGuide({ onFinish, onExit }) {
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, color: C.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
             <span>Card {i + 1} of {STUDY_CARDS.length}</span>
-            <button onClick={onExit} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: `1px solid ${C.panelBorder}`, color: C.textMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 10px", borderRadius: 999, cursor: "pointer" }}>
+            <button onClick={onExit} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: `1px solid ${C.panelBorder}`, color: C.textMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 10px", borderRadius: 6, cursor: "pointer" }}>
               🏠 Home
             </button>
           </div>
-          <div style={{ height: 6, background: C.track, borderRadius: 999, overflow: "hidden" }}>
+          <div style={{ height: 6, background: C.track, borderRadius: 6, overflow: "hidden" }}>
             <div style={{ height: "100%", background: C.green, transition: "width 0.3s", width: `${((i + 1) / STUDY_CARDS.length) * 100}%` }} />
           </div>
         </div>
@@ -862,16 +1124,16 @@ function StudyGuide({ onFinish, onExit }) {
           <button
             onClick={() => setI((v) => Math.max(0, v - 1))}
             disabled={i === 0}
-            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.panel, border: `1px solid ${C.panelBorder}`, color: C.white, fontWeight: 700, padding: "12px 0", borderRadius: 8, cursor: i === 0 ? "default" : "pointer", opacity: i === 0 ? 0.4 : 1, fontSize: 15 }}
+            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.panel, border: `1px solid ${C.panelBorder}`, color: C.white, fontWeight: 700, padding: "12px 0", borderRadius: 4, cursor: i === 0 ? "default" : "pointer", opacity: i === 0 ? 0.4 : 1, fontSize: 15 }}
           >
             ← Back
           </button>
           {isLast ? (
-            <button onClick={onFinish} style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.green, border: "none", color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 8, cursor: "pointer", fontSize: 15 }}>
+            <button onClick={onFinish} style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.green, border: "none", color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 4, cursor: "pointer", fontSize: 15 }}>
               Finish ✓
             </button>
           ) : (
-            <button onClick={() => setI((v) => Math.min(STUDY_CARDS.length - 1, v + 1))} style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.blue, border: "none", color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 8, cursor: "pointer", fontSize: 15 }}>
+            <button onClick={() => setI((v) => Math.min(STUDY_CARDS.length - 1, v + 1))} style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.blue, border: "none", color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 4, cursor: "pointer", fontSize: 15 }}>
               Next →
             </button>
           )}
@@ -891,7 +1153,7 @@ function CategoryToggles({ enabled, onToggle }) {
             key={c.key}
             onClick={() => onToggle(c.key)}
             style={{
-              padding: "6px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700,
+              padding: "6px 12px", borderRadius: 6, fontSize: 12, fontWeight: 700,
               border: `1px solid ${active ? c.color : C.panelBorder}`,
               background: active ? c.color : "transparent",
               color: active ? "white" : C.textFaint,
@@ -919,12 +1181,12 @@ function QuestionShell({ index, total, correctCount, wrongCount, onEndSession, e
               <span>Question {index + 1} · <span style={{ color: C.green }}>✓ {correctCount}</span> <span style={{ color: C.red }}>✗ {wrongCount}</span></span>
             )}
             {onEndSession && (
-              <button onClick={onEndSession} style={{ background: "none", border: `1px solid ${C.panelBorder}`, color: C.textMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 10px", borderRadius: 999, cursor: "pointer" }}>
+              <button onClick={onEndSession} style={{ background: "none", border: `1px solid ${C.panelBorder}`, color: C.textMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 10px", borderRadius: 6, cursor: "pointer" }}>
                 End Session
               </button>
             )}
           </div>
-          <div style={{ height: 6, background: C.track, borderRadius: 999, overflow: "hidden" }}>
+          <div style={{ height: 6, background: C.track, borderRadius: 6, overflow: "hidden" }}>
             {total ? (
               <div style={{ height: "100%", background: C.blue, transition: "width 0.5s", width: `${(index / total) * 100}%` }} />
             ) : (
@@ -938,14 +1200,20 @@ function QuestionShell({ index, total, correctCount, wrongCount, onEndSession, e
   );
 }
 
-function FeedbackFlash({ status }) {
+function FeedbackFlash({ status, correctAnswer }) {
   if (!status) return null;
   const isCorrect = status === "correct";
   return (
-    <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", zIndex: 50 }}>
+    <div style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none", zIndex: 50, gap: 16, padding: 24 }}>
       <div style={{ borderRadius: "50%", padding: 32, background: isCorrect ? C.green : C.red, animation: "pingOnce 0.7s ease-out forwards", boxShadow: "0 20px 40px rgba(0,0,0,0.4)", fontSize: 40 }}>
         {isCorrect ? "✅" : "❌"}
       </div>
+      {!isCorrect && correctAnswer && (
+        <div style={{ background: "white", borderRadius: 6, padding: "12px 20px", boxShadow: "0 10px 30px rgba(0,0,0,0.3)", maxWidth: 300, textAlign: "center" }}>
+          <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "#8FA3AF", fontWeight: 700, margin: "0 0 4px" }}>Correct Answer</p>
+          <p style={{ fontSize: 16, fontWeight: 800, color: "#0B1E2E", margin: 0 }}>{correctAnswer}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -955,6 +1223,7 @@ function CodeTypeQuestion({ item, shellProps, onAnswer }) {
   const [flash, setFlash] = useState(null);
   const [locked, setLocked] = useState(false);
   const inputRef = useRef(null);
+  const revealAnswer = shellProps.revealAnswer;
 
   useEffect(() => { inputRef.current && inputRef.current.focus(); }, []);
 
@@ -963,17 +1232,17 @@ function CodeTypeQuestion({ item, shellProps, onAnswer }) {
     setLocked(true);
     const correct = val.trim().toUpperCase() === item.answer.toUpperCase();
     setFlash(correct ? "correct" : "wrong");
-    setTimeout(() => onAnswer(correct), 700);
-  }, [locked, item.answer, onAnswer]);
+    setTimeout(() => onAnswer(correct), !correct && revealAnswer ? 1800 : 700);
+  }, [locked, item.answer, onAnswer, revealAnswer]);
 
   const handleExpire = useCallback(() => submit(value), [submit, value]);
-  const timeLeft = useCountdown(10, !locked, handleExpire);
+  const timeLeft = useCountdown(15, !locked, handleExpire);
 
   return (
     <QuestionShell {...shellProps}>
-      <FeedbackFlash status={flash} />
+      <FeedbackFlash status={flash} correctAnswer={revealAnswer ? item.answer : null} />
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
-        <TimerRing timeLeft={timeLeft} total={10} />
+        <TimerRing timeLeft={timeLeft} total={15} />
         <div>
           <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Type the code for</p>
           <p style={{ fontSize: 26, fontWeight: 900, color: C.white, margin: 0 }}>{item.name}</p>
@@ -986,10 +1255,10 @@ function CodeTypeQuestion({ item, shellProps, onAnswer }) {
         onKeyDown={(e) => { if (e.key === "Enter") submit(value); }}
         disabled={locked}
         maxLength={10}
-        style={{ width: "100%", background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: 12, padding: "16px", color: C.white, fontSize: 28, fontWeight: 900, letterSpacing: "0.3em", textAlign: "center", textTransform: "uppercase", outline: "none" }}
+        style={{ width: "100%", background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: 6, padding: "16px", color: C.white, fontSize: 28, fontWeight: 900, letterSpacing: "0.3em", textAlign: "center", textTransform: "uppercase", outline: "none" }}
         placeholder="CODE"
       />
-      <button type="button" onClick={() => submit(value)} disabled={locked} style={{ marginTop: 16, width: "100%", background: C.blue, color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 8, border: "none", cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1, fontSize: 16 }}>
+      <button type="button" onClick={() => submit(value)} disabled={locked} style={{ marginTop: 16, width: "100%", background: C.blue, color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 4, border: "none", cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1, fontSize: 16 }}>
         Submit
       </button>
     </QuestionShell>
@@ -999,29 +1268,30 @@ function CodeTypeQuestion({ item, shellProps, onAnswer }) {
 function CodeMCQuestion({ item, shellProps, onAnswer }) {
   const [flash, setFlash] = useState(null);
   const [locked, setLocked] = useState(false);
+  const revealAnswer = shellProps.revealAnswer;
 
   const handleExpire = useCallback(() => {
     if (locked) return;
     setLocked(true);
     setFlash("wrong");
-    setTimeout(() => onAnswer(false), 700);
-  }, [locked, onAnswer]);
+    setTimeout(() => onAnswer(false), revealAnswer ? 1800 : 700);
+  }, [locked, onAnswer, revealAnswer]);
 
-  const timeLeft = useCountdown(10, !locked, handleExpire);
+  const timeLeft = useCountdown(15, !locked, handleExpire);
 
   const choose = (choice) => {
     if (locked) return;
     setLocked(true);
     const correct = choice === item.answer;
     setFlash(correct ? "correct" : "wrong");
-    setTimeout(() => onAnswer(correct), 700);
+    setTimeout(() => onAnswer(correct), !correct && revealAnswer ? 1800 : 700);
   };
 
   return (
     <QuestionShell {...shellProps}>
-      <FeedbackFlash status={flash} />
+      <FeedbackFlash status={flash} correctAnswer={revealAnswer ? item.answer : null} />
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
-        <TimerRing timeLeft={timeLeft} total={10} />
+        <TimerRing timeLeft={timeLeft} total={15} />
         <div>
           <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Topping code</p>
           <p style={{ fontSize: 40, fontWeight: 900, color: C.white, letterSpacing: "0.05em", margin: 0 }}>{item.code}</p>
@@ -1030,7 +1300,7 @@ function CodeMCQuestion({ item, shellProps, onAnswer }) {
       <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 12 }}>Which topping is this?</p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
         {item.choices.map((c) => (
-          <button key={c} onClick={() => choose(c)} disabled={locked} style={{ textAlign: "left", padding: "14px 16px", borderRadius: 12, background: C.panel, border: `1px solid ${C.panelBorder}`, color: C.white, fontWeight: 600, cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>
+          <button key={c} onClick={() => choose(c)} disabled={locked} style={{ textAlign: "left", padding: "14px 16px", borderRadius: 6, background: C.panel, border: `1px solid ${C.panelBorder}`, color: C.white, fontWeight: 600, cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>
             {c}
           </button>
         ))}
@@ -1042,29 +1312,30 @@ function CodeMCQuestion({ item, shellProps, onAnswer }) {
 function CrustMCQuestion({ item, shellProps, onAnswer }) {
   const [flash, setFlash] = useState(null);
   const [locked, setLocked] = useState(false);
+  const revealAnswer = shellProps.revealAnswer;
 
   const handleExpire = useCallback(() => {
     if (locked) return;
     setLocked(true);
     setFlash("wrong");
-    setTimeout(() => onAnswer(false), 700);
-  }, [locked, onAnswer]);
+    setTimeout(() => onAnswer(false), revealAnswer ? 1800 : 700);
+  }, [locked, onAnswer, revealAnswer]);
 
-  const timeLeft = useCountdown(10, !locked, handleExpire);
+  const timeLeft = useCountdown(15, !locked, handleExpire);
 
   const choose = (choice) => {
     if (locked) return;
     setLocked(true);
     const correct = choice === item.answer;
     setFlash(correct ? "correct" : "wrong");
-    setTimeout(() => onAnswer(correct), 700);
+    setTimeout(() => onAnswer(correct), !correct && revealAnswer ? 1800 : 700);
   };
 
   return (
     <QuestionShell {...shellProps}>
-      <FeedbackFlash status={flash} />
+      <FeedbackFlash status={flash} correctAnswer={revealAnswer ? item.answer : null} />
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
-        <TimerRing timeLeft={timeLeft} total={10} />
+        <TimerRing timeLeft={timeLeft} total={15} />
         <div>
           <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Crust</p>
           <p style={{ fontSize: 26, fontWeight: 900, color: C.white, margin: 0 }}>{item.crust}</p>
@@ -1073,7 +1344,7 @@ function CrustMCQuestion({ item, shellProps, onAnswer }) {
       <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 12 }}>Which sizes does it come in?</p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
         {item.choices.map((c) => (
-          <button key={c} onClick={() => choose(c)} disabled={locked} style={{ textAlign: "left", padding: "14px 16px", borderRadius: 12, background: C.panel, border: `1px solid ${C.panelBorder}`, color: C.white, fontWeight: 600, cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>
+          <button key={c} onClick={() => choose(c)} disabled={locked} style={{ textAlign: "left", padding: "14px 16px", borderRadius: 6, background: C.panel, border: `1px solid ${C.panelBorder}`, color: C.white, fontWeight: 600, cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>
             {c}
           </button>
         ))}
@@ -1087,6 +1358,7 @@ function CrustTypeQuestion({ item, shellProps, onAnswer }) {
   const [flash, setFlash] = useState(null);
   const [locked, setLocked] = useState(false);
   const inputRef = useRef(null);
+  const revealAnswer = shellProps.revealAnswer;
 
   useEffect(() => { inputRef.current && inputRef.current.focus(); }, []);
 
@@ -1097,17 +1369,17 @@ function CrustTypeQuestion({ item, shellProps, onAnswer }) {
     const given = parseSizesInput(val);
     const correct = given.size > 0 && sizesSetEqual(given, expected);
     setFlash(correct ? "correct" : "wrong");
-    setTimeout(() => onAnswer(correct), 700);
-  }, [locked, item.sizes, onAnswer]);
+    setTimeout(() => onAnswer(correct), !correct && revealAnswer ? 1800 : 700);
+  }, [locked, item.sizes, onAnswer, revealAnswer]);
 
   const handleExpire = useCallback(() => submit(value), [submit, value]);
-  const timeLeft = useCountdown(10, !locked, handleExpire);
+  const timeLeft = useCountdown(15, !locked, handleExpire);
 
   return (
     <QuestionShell {...shellProps}>
-      <FeedbackFlash status={flash} />
+      <FeedbackFlash status={flash} correctAnswer={revealAnswer ? item.sizes.join(", ") : null} />
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
-        <TimerRing timeLeft={timeLeft} total={10} />
+        <TimerRing timeLeft={timeLeft} total={15} />
         <div>
           <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Type the sizes for</p>
           <p style={{ fontSize: 26, fontWeight: 900, color: C.white, margin: 0 }}>{item.crust}</p>
@@ -1120,10 +1392,10 @@ function CrustTypeQuestion({ item, shellProps, onAnswer }) {
         onKeyDown={(e) => { if (e.key === "Enter") submit(value); }}
         disabled={locked}
         maxLength={40}
-        style={{ width: "100%", background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: 12, padding: "16px", color: C.white, fontSize: 20, fontWeight: 800, textAlign: "center", outline: "none" }}
+        style={{ width: "100%", background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: 6, padding: "16px", color: C.white, fontSize: 20, fontWeight: 800, textAlign: "center", outline: "none" }}
         placeholder="e.g. S, M, L"
       />
-      <button type="button" onClick={() => submit(value)} disabled={locked} style={{ marginTop: 16, width: "100%", background: C.blue, color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 8, border: "none", cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1, fontSize: 16 }}>
+      <button type="button" onClick={() => submit(value)} disabled={locked} style={{ marginTop: 16, width: "100%", background: C.blue, color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 4, border: "none", cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1, fontSize: 16 }}>
         Submit
       </button>
     </QuestionShell>
@@ -1135,6 +1407,7 @@ function CodeNameTypeQuestion({ item, shellProps, onAnswer }) {
   const [flash, setFlash] = useState(null);
   const [locked, setLocked] = useState(false);
   const inputRef = useRef(null);
+  const revealAnswer = shellProps.revealAnswer;
 
   useEffect(() => { inputRef.current && inputRef.current.focus(); }, []);
 
@@ -1143,17 +1416,17 @@ function CodeNameTypeQuestion({ item, shellProps, onAnswer }) {
     setLocked(true);
     const correct = matchesToppingName(val, item.answer);
     setFlash(correct ? "correct" : "wrong");
-    setTimeout(() => onAnswer(correct), 700);
-  }, [locked, item.answer, onAnswer]);
+    setTimeout(() => onAnswer(correct), !correct && revealAnswer ? 1800 : 700);
+  }, [locked, item.answer, onAnswer, revealAnswer]);
 
   const handleExpire = useCallback(() => submit(value), [submit, value]);
-  const timeLeft = useCountdown(10, !locked, handleExpire);
+  const timeLeft = useCountdown(15, !locked, handleExpire);
 
   return (
     <QuestionShell {...shellProps}>
-      <FeedbackFlash status={flash} />
+      <FeedbackFlash status={flash} correctAnswer={revealAnswer ? item.answer : null} />
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
-        <TimerRing timeLeft={timeLeft} total={10} />
+        <TimerRing timeLeft={timeLeft} total={15} />
         <div>
           <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Topping code</p>
           <p style={{ fontSize: 40, fontWeight: 900, color: C.white, letterSpacing: "0.05em", margin: 0 }}>{item.code}</p>
@@ -1166,10 +1439,10 @@ function CodeNameTypeQuestion({ item, shellProps, onAnswer }) {
         onKeyDown={(e) => { if (e.key === "Enter") submit(value); }}
         disabled={locked}
         maxLength={30}
-        style={{ width: "100%", background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: 12, padding: "16px", color: C.white, fontSize: 20, fontWeight: 800, textAlign: "center", outline: "none" }}
+        style={{ width: "100%", background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: 6, padding: "16px", color: C.white, fontSize: 20, fontWeight: 800, textAlign: "center", outline: "none" }}
         placeholder="Type the topping name"
       />
-      <button type="button" onClick={() => submit(value)} disabled={locked} style={{ marginTop: 16, width: "100%", background: C.blue, color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 8, border: "none", cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1, fontSize: 16 }}>
+      <button type="button" onClick={() => submit(value)} disabled={locked} style={{ marginTop: 16, width: "100%", background: C.blue, color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 4, border: "none", cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1, fontSize: 16 }}>
         Submit
       </button>
     </QuestionShell>
@@ -1179,29 +1452,30 @@ function CodeNameTypeQuestion({ item, shellProps, onAnswer }) {
 function PortionMCQuestion({ item, shellProps, onAnswer }) {
   const [flash, setFlash] = useState(null);
   const [locked, setLocked] = useState(false);
+  const revealAnswer = shellProps.revealAnswer;
 
   const handleExpire = useCallback(() => {
     if (locked) return;
     setLocked(true);
     setFlash("wrong");
-    setTimeout(() => onAnswer(false), 700);
-  }, [locked, onAnswer]);
+    setTimeout(() => onAnswer(false), revealAnswer ? 1800 : 700);
+  }, [locked, onAnswer, revealAnswer]);
 
-  const timeLeft = useCountdown(10, !locked, handleExpire);
+  const timeLeft = useCountdown(15, !locked, handleExpire);
 
   const choose = (choice) => {
     if (locked) return;
     setLocked(true);
     const correct = choice === item.answer;
     setFlash(correct ? "correct" : "wrong");
-    setTimeout(() => onAnswer(correct), 700);
+    setTimeout(() => onAnswer(correct), !correct && revealAnswer ? 1800 : 700);
   };
 
   return (
     <QuestionShell {...shellProps}>
-      <FeedbackFlash status={flash} />
+      <FeedbackFlash status={flash} correctAnswer={revealAnswer ? `${item.answer} ${item.unit}` : null} />
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 8 }}>
-        <TimerRing timeLeft={timeLeft} total={10} />
+        <TimerRing timeLeft={timeLeft} total={15} />
         <div>
           <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Portion check</p>
           <p style={{ fontSize: 26, fontWeight: 900, color: C.white, margin: 0 }}>{item.ingredient}</p>
@@ -1211,7 +1485,7 @@ function PortionMCQuestion({ item, shellProps, onAnswer }) {
       <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 12 }}>How many {item.unit} go on it?</p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         {item.choices.map((c) => (
-          <button key={c} onClick={() => choose(c)} disabled={locked} style={{ textAlign: "center", padding: "16px 8px", borderRadius: 12, background: C.panel, border: `1px solid ${C.panelBorder}`, color: C.white, fontWeight: 800, fontSize: 20, cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>
+          <button key={c} onClick={() => choose(c)} disabled={locked} style={{ textAlign: "center", padding: "16px 8px", borderRadius: 6, background: C.panel, border: `1px solid ${C.panelBorder}`, color: C.white, fontWeight: 800, fontSize: 20, cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>
             {c} <span style={{ fontSize: 12, fontWeight: 500, color: C.textMuted }}>{item.unit}</span>
           </button>
         ))}
@@ -1225,6 +1499,7 @@ function PortionTypeQuestion({ item, shellProps, onAnswer }) {
   const [flash, setFlash] = useState(null);
   const [locked, setLocked] = useState(false);
   const inputRef = useRef(null);
+  const revealAnswer = shellProps.revealAnswer;
 
   useEffect(() => { inputRef.current && inputRef.current.focus(); }, []);
 
@@ -1234,17 +1509,17 @@ function PortionTypeQuestion({ item, shellProps, onAnswer }) {
     const num = parseFloat(val);
     const correct = !isNaN(num) && num === parseFloat(item.answer);
     setFlash(correct ? "correct" : "wrong");
-    setTimeout(() => onAnswer(correct), 700);
-  }, [locked, item.answer, onAnswer]);
+    setTimeout(() => onAnswer(correct), !correct && revealAnswer ? 1800 : 700);
+  }, [locked, item.answer, onAnswer, revealAnswer]);
 
   const handleExpire = useCallback(() => submit(value), [submit, value]);
-  const timeLeft = useCountdown(10, !locked, handleExpire);
+  const timeLeft = useCountdown(15, !locked, handleExpire);
 
   return (
     <QuestionShell {...shellProps}>
-      <FeedbackFlash status={flash} />
+      <FeedbackFlash status={flash} correctAnswer={revealAnswer ? `${item.answer} ${item.unit}` : null} />
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 8 }}>
-        <TimerRing timeLeft={timeLeft} total={10} />
+        <TimerRing timeLeft={timeLeft} total={15} />
         <div>
           <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Type the portion ({item.unit})</p>
           <p style={{ fontSize: 22, fontWeight: 900, color: C.white, margin: 0 }}>{item.ingredient}</p>
@@ -1259,10 +1534,10 @@ function PortionTypeQuestion({ item, shellProps, onAnswer }) {
         disabled={locked}
         inputMode="decimal"
         maxLength={5}
-        style={{ width: "100%", background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: 12, padding: "16px", color: C.white, fontSize: 24, fontWeight: 900, letterSpacing: "0.15em", textAlign: "center", outline: "none" }}
+        style={{ width: "100%", background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: 6, padding: "16px", color: C.white, fontSize: 24, fontWeight: 900, letterSpacing: "0.15em", textAlign: "center", outline: "none" }}
         placeholder={item.unit.toUpperCase()}
       />
-      <button type="button" onClick={() => submit(value)} disabled={locked} style={{ marginTop: 16, width: "100%", background: C.blue, color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 8, border: "none", cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1, fontSize: 16 }}>
+      <button type="button" onClick={() => submit(value)} disabled={locked} style={{ marginTop: 16, width: "100%", background: C.blue, color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 4, border: "none", cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1, fontSize: 16 }}>
         Submit
       </button>
     </QuestionShell>
@@ -1273,6 +1548,7 @@ function BuildQuestion({ item, shellProps, onAnswer }) {
   const [selected, setSelected] = useState([]);
   const [flash, setFlash] = useState(null);
   const [locked, setLocked] = useState(false);
+  const revealAnswer = shellProps.revealAnswer;
 
   const evaluate = useCallback((sel) => {
     if (locked) return;
@@ -1281,8 +1557,8 @@ function BuildQuestion({ item, shellProps, onAnswer }) {
     const selSet = [...sel].sort().join(",");
     const correct = correctSet === selSet;
     setFlash(correct ? "correct" : "wrong");
-    setTimeout(() => onAnswer(correct), 800);
-  }, [locked, item.correct, onAnswer]);
+    setTimeout(() => onAnswer(correct), !correct && revealAnswer ? 2600 : 800);
+  }, [locked, item.correct, onAnswer, revealAnswer]);
 
   const handleExpire = useCallback(() => evaluate(selected), [evaluate, selected]);
   const timerSeconds = Math.max(20, Math.round(item.correct.length * 2.5));
@@ -1295,7 +1571,7 @@ function BuildQuestion({ item, shellProps, onAnswer }) {
 
   return (
     <QuestionShell {...shellProps}>
-      <FeedbackFlash status={flash} />
+      <FeedbackFlash status={flash} correctAnswer={revealAnswer ? item.correct.join(", ") : null} />
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
         <TimerRing timeLeft={timeLeft} total={timerSeconds} />
         <div>
@@ -1321,29 +1597,36 @@ function BuildQuestion({ item, shellProps, onAnswer }) {
         {TOPPING_TILES.map((t) => {
           const active = selected.includes(t.label);
           return (
-            <button key={t.label} onClick={() => toggle(t.label)} disabled={locked} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", borderRadius: 10, border: `1px solid ${active ? C.blue : C.panelBorder}`, background: active ? C.blueSoft : C.panel, color: active ? C.white : C.textMuted, fontWeight: 600, fontSize: 13, cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>
+            <button key={t.label} onClick={() => toggle(t.label)} disabled={locked} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", borderRadius: 6, border: `1px solid ${active ? C.blue : C.panelBorder}`, background: active ? C.blueSoft : C.panel, color: active ? C.white : C.textMuted, fontWeight: 600, fontSize: 13, cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>
               <span style={{ width: 11, height: 11, borderRadius: "50%", background: t.color, flexShrink: 0, border: "1px solid rgba(0,0,0,0.15)" }} />
               <span style={{ flex: 1 }}>{t.label}</span>
-              {t.code && <span style={{ fontSize: 11, fontWeight: 800, color: C.textMuted, background: "rgba(11,30,46,0.05)", padding: "1px 6px", borderRadius: 6 }}>{t.code}</span>}
+              {t.code && <span style={{ fontSize: 11, fontWeight: 800, color: C.textMuted, background: "rgba(11,30,46,0.05)", padding: "1px 6px", borderRadius: 4 }}>{t.code}</span>}
             </button>
           );
         })}
       </div>
 
-      <button onClick={() => evaluate(selected)} disabled={locked || selected.length === 0} style={{ marginTop: 16, width: "100%", background: C.red, color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 8, border: "none", cursor: locked || selected.length === 0 ? "default" : "pointer", opacity: locked || selected.length === 0 ? 0.4 : 1, fontSize: 16 }}>
+      <button onClick={() => evaluate(selected)} disabled={locked || selected.length === 0} style={{ marginTop: 16, width: "100%", background: C.red, color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 4, border: "none", cursor: locked || selected.length === 0 ? "default" : "pointer", opacity: locked || selected.length === 0 ? 0.4 : 1, fontSize: 16 }}>
         Confirm Build
       </button>
     </QuestionShell>
   );
 }
 
-function Results({ user, results, mode, onRestart, onPass }) {
+function Results({ user, results, mode, onRestart, onPass, onRetryMissed }) {
   const total = results.length;
   const correct = results.filter((r) => r.correct).length;
   const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
   const isCertMode = mode === "newhire" || mode === "csr";
-  const pass = isCertMode ? pct >= 90 : true;
+  const pass = isCertMode ? pct >= 90 : mode === "retry" ? pct === 100 : true;
   const [sent, setSent] = useState(false);
+  const missed = results.filter((r) => !r.correct && r.question);
+  const examType = mode === "newhire" ? "New Hire" : mode === "csr" ? "CSR" : null;
+
+  const [email, setEmail] = useState("");
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [magicLinkError, setMagicLinkError] = useState("");
+  const [saveStatus, setSaveStatus] = useState(null);
 
   useEffect(() => {
     const t = setTimeout(() => setSent(true), 1200);
@@ -1354,8 +1637,37 @@ function Results({ user, results, mode, onRestart, onPass }) {
     if (mode === "newhire" && pass && onPass) onPass();
   }, [mode, pass, onPass]);
 
-  const title = isCertMode ? (pass ? "Certification Passed" : "Not Yet — Retake Needed") : "Practice Session Complete";
-  const subtitle = mode === "newhire" ? "New Hire Certification" : mode === "csr" ? "CSR Certification" : "Endless Practice";
+  useEffect(() => {
+    if (!examType) return;
+    let cancelled = false;
+    (async () => {
+      setSaveStatus("checking");
+      const session = await getCurrentSession();
+      if (cancelled) return;
+      if (session) {
+        setSaveStatus("saving");
+        const result = await saveCertResult({ name: user.name, store: user.store, examType, score: pct, pass, correct, total });
+        if (cancelled) return;
+        setSaveStatus(result.success ? "saved" : "error");
+      } else {
+        setSaveStatus("no-session");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleSendLink = async () => {
+    if (!email.trim()) { setMagicLinkError("Enter an email first."); return; }
+    setMagicLinkError("");
+    const result = await sendMagicLink(email.trim(), { type: "save-cert", payload: { name: user.name, store: user.store, examType, score: pct, pass, correct, total } });
+    if (result.success) setMagicLinkSent(true);
+    else setMagicLinkError(result.error || "Something went wrong sending that.");
+  };
+
+  const title = mode === "retry"
+    ? (missed.length === 0 ? "All Cleaned Up!" : "Retry Complete")
+    : isCertMode ? (pass ? "Certification Passed" : "Not Yet — Retake Needed") : "Practice Session Complete";
+  const subtitle = mode === "newhire" ? "New Hire Certification" : mode === "csr" ? "CSR Certification" : mode === "retry" ? "Missed Question Retry" : "Endless Practice";
 
   return (
     <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg }}>
@@ -1368,30 +1680,74 @@ function Results({ user, results, mode, onRestart, onPass }) {
           <p style={{ color: C.textMuted, fontSize: 14, margin: 0 }}>{correct} of {total} correct · {subtitle}</p>
         </div>
 
-        <div style={{ background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 16, padding: 16, marginBottom: 16 }}>
+        <div style={{ background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 8, padding: 16, marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
             <span>✉️</span>
-            <span style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", color: C.textMuted, fontWeight: 700 }}>Manager Notification</span>
+            <span style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", color: C.textMuted, fontWeight: 700 }}>Store Notification</span>
           </div>
           {!sent ? (
-            <p style={{ color: C.textFaint, fontSize: 14 }}>Sending results to {user.manager}…</p>
+            <p style={{ color: C.textFaint, fontSize: 14 }}>Sending results to Store #{user.store}…</p>
           ) : (
             <p style={{ color: C.white, fontSize: 14, margin: 0 }}>
-              ✅ Emailed to <span style={{ fontWeight: 600 }}>{user.manager}</span> ({user.managerEmail}) — {user.name}, Store {user.store}, scored {pct}% ({subtitle}).
+              ✅ Emailed to <span style={{ fontWeight: 600 }}>Store #{user.store}</span> — {user.name} scored {pct}% ({subtitle}).
             </p>
           )}
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 24, maxHeight: 320, overflowY: "auto" }}>
           {results.map((r, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panelDim, borderRadius: 8, padding: "8px 12px", fontSize: 14 }}>
+            <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panelDim, borderRadius: 4, padding: "8px 12px", fontSize: 14 }}>
               <span style={{ color: C.textMuted }}>Q{i + 1} · {r.type}</span>
               <span>{r.correct ? "✅" : "❌"}</span>
             </div>
           ))}
         </div>
 
-        <button onClick={onRestart} style={{ width: "100%", background: C.blue, color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 16 }}>
+        {saveStatus === "saved" && (
+          <div style={{ background: C.greenSoft, border: `2px solid ${C.green}`, borderRadius: C.cardRadius, padding: "12px 16px", marginBottom: 16, color: C.white, fontSize: 14, fontWeight: 600 }}>
+            ✓ Saved to your account
+          </div>
+        )}
+        {saveStatus === "error" && (
+          <div style={{ background: C.redSoft, border: `2px solid ${C.red}`, borderRadius: C.cardRadius, padding: "12px 16px", marginBottom: 16, color: C.white, fontSize: 14 }}>
+            Couldn't save this to your account — your result still went to the store as usual.
+          </div>
+        )}
+
+        {mode === "csr" && pass && saveStatus === "no-session" && !magicLinkSent && (
+          <div style={{ background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 18, marginBottom: 16 }}>
+            <p style={{ fontFamily: C.displayFont, fontSize: 20, fontWeight: 700, textTransform: "uppercase", color: C.white, margin: "0 0 4px" }}>Save Your Progress</p>
+            <p style={{ color: C.textMuted, fontSize: 13, marginBottom: 12, lineHeight: 1.4 }}>
+              You passed CSR — enter your email and we'll send a link to create an account, so this and future results are saved.
+            </p>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@email.com"
+              style={{ width: "100%", background: C.bg, border: `1px solid ${C.panelBorder}`, borderRadius: 4, padding: "10px 12px", color: C.white, fontSize: 14, outline: "none", marginBottom: 10, boxSizing: "border-box" }}
+            />
+            {magicLinkError && <p style={{ color: C.errorRed, fontSize: 12, marginBottom: 8 }}>{magicLinkError}</p>}
+            <button onClick={handleSendLink} style={{ width: "100%", background: C.blue, color: "white", fontWeight: 700, padding: "11px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer", fontSize: 16 }}>
+              Send Magic Link
+            </button>
+          </div>
+        )}
+        {magicLinkSent && (
+          <div style={{ background: C.blueSoft, border: `2px solid ${C.blue}`, borderRadius: C.cardRadius, padding: "12px 16px", marginBottom: 16, color: C.white, fontSize: 14 }}>
+            Check your email for the link — come back and this result saves automatically.
+          </div>
+        )}
+
+        {missed.length > 0 && (mode === "endless" || mode === "retry") && (
+          <button
+            onClick={() => onRetryMissed(missed.map((r) => r.question))}
+            style={{ width: "100%", background: C.purpleSoft, color: C.purple, fontWeight: 700, padding: "12px 0", borderRadius: 4, border: `1px solid ${C.purple}`, cursor: "pointer", marginBottom: 10, fontSize: 16 }}
+          >
+            Retry the {missed.length} You Missed
+          </button>
+        )}
+
+        <button onClick={onRestart} style={{ width: "100%", background: C.blue, color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 4, border: "none", cursor: "pointer", fontSize: 16 }}>
           {isCertMode && !pass ? "Retake Course" : "Back to Dashboard"}
         </button>
       </div>
@@ -1414,6 +1770,7 @@ function renderQuestion(q, shellProps, onAnswer) {
 
 function App() {
   const [user, setUser] = useState(null);
+  const [pendingLogin, setPendingLogin] = useState(null);
   const [screen, setScreen] = useState("login");
   const [mode, setMode] = useState(null); // 'newhire' | 'csr' | 'endless'
   const [qIndex, setQIndex] = useState(0);
@@ -1423,6 +1780,67 @@ function App() {
   const [studyGuideViewed, setStudyGuideViewed] = useState(false);
   const [newHirePassed, setNewHirePassed] = useState(false);
   const [enabledCategories, setEnabledCategories] = useState(DEFAULT_ENABLED_CATEGORIES);
+  const [isDark, setIsDark] = useState(function () {
+    try { return localStorage.getItem("storeup-dark") === "1"; } catch (e) { return false; }
+  });
+  const [seenTimerWarning, setSeenTimerWarning] = useState(() => hasSeenTimerWarning());
+  const [pendingStartFn, setPendingStartFn] = useState(null);
+  const [hasAccountSession, setHasAccountSession] = useState(false);
+  const [resumeState, setResumeStateVal] = useState(() => loadResumeState());
+
+  applyTheme(isDark);
+
+  useEffect(function () {
+    try { localStorage.setItem("storeup-dark", isDark ? "1" : "0"); } catch (e) { /* ignore */ }
+  }, [isDark]);
+
+  const refreshAccountSession = async () => {
+    const session = await getCurrentSession();
+    setHasAccountSession(!!session);
+    return !!session;
+  };
+
+  const [pendingSaveResult, setPendingSaveResult] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const intent = readStashedIntent();
+      if (!intent) {
+        const hasSession = await refreshAccountSession();
+        if (hasSession) {
+          const profile = await fetchOwnProfile();
+          if (!cancelled && profile) {
+            setUser({ name: profile.name, store: profile.store, role: "New Hire" });
+            setScreen("dashboard");
+          }
+        }
+        return;
+      }
+      const session = await getCurrentSession();
+      if (cancelled) return;
+      if (!session) return;
+      if (intent.type === "save-cert") {
+        const result = await saveCertResult(intent.payload);
+        if (cancelled) return;
+        if (result.success) {
+          clearStashedIntent();
+          setPendingSaveResult(intent.payload);
+          await refreshAccountSession();
+        }
+      } else if (intent.type === "sign-in") {
+        clearStashedIntent();
+        if (cancelled) return;
+        await refreshAccountSession();
+        const profile = await fetchOwnProfile();
+        if (cancelled) return;
+        if (profile) {
+          setUser({ name: profile.name, store: profile.store, role: "New Hire" });
+        }
+        setScreen("account");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const toggleCategory = (key) => {
     setEnabledCategories((prev) => {
@@ -1439,6 +1857,8 @@ function App() {
   };
 
   const startNewHire = () => {
+    clearResumeState();
+    setResumeStateVal(null);
     setMode("newhire");
     setQIndex(0);
     setResults([]);
@@ -1448,6 +1868,8 @@ function App() {
 
   const startCSR = () => {
     if (!newHirePassed) return;
+    clearResumeState();
+    setResumeStateVal(null);
     setMode("csr");
     setQIndex(0);
     setResults([]);
@@ -1463,17 +1885,59 @@ function App() {
     setScreen("quiz");
   };
 
-  const fixedQuestions = mode === "newhire" || mode === "csr" ? certQuestions : null;
+  const startRetry = (missedQuestions) => {
+    setMode("retry");
+    setQIndex(0);
+    setResults([]);
+    setCertQuestions(missedQuestions);
+    setScreen("quiz");
+  };
+
+  const guardedStart = (fn) => () => {
+    if (seenTimerWarning) { fn(); return; }
+    setPendingStartFn(() => fn);
+    setScreen("timerwarning");
+  };
+  const acknowledgeTimerWarning = () => {
+    markTimerWarningSeen();
+    setSeenTimerWarning(true);
+    const fn = pendingStartFn;
+    setPendingStartFn(null);
+    if (fn) fn();
+  };
+
+  const resumeCert = () => {
+    if (!resumeState) return;
+    setMode(resumeState.mode);
+    setCertQuestions(resumeState.certQuestions);
+    setQIndex(resumeState.qIndex);
+    setResults(resumeState.results);
+    setScreen("quiz");
+  };
+  const discardResume = () => {
+    clearResumeState();
+    setResumeStateVal(null);
+  };
+
+  const fixedQuestions = mode === "newhire" || mode === "csr" || mode === "retry" ? certQuestions : null;
   const currentQuestion = fixedQuestions ? fixedQuestions[qIndex] : endlessQueue[qIndex];
 
   const handleAnswer = (correct) => {
     const q = currentQuestion;
-    const next = [...results, { type: q.type, correct }];
+    const next = [...results, { type: q.type, correct, question: q }];
     setResults(next);
     if (fixedQuestions) {
-      if (qIndex + 1 < fixedQuestions.length) {
-        setQIndex(qIndex + 1);
+      const nextIndex = qIndex + 1;
+      if (nextIndex < fixedQuestions.length) {
+        setQIndex(nextIndex);
+        if (mode === "newhire" || mode === "csr") {
+          saveResumeState(mode, fixedQuestions, nextIndex, next);
+        }
       } else {
+        if (mode === "newhire" || mode === "csr") {
+          clearResumeState();
+          setResumeStateVal(null);
+        }
         setScreen("results");
       }
     } else {
@@ -1489,27 +1953,162 @@ function App() {
 
   return (
     <div style={{ width: "100%", minHeight: "100vh" }}>
-      {screen === "login" && <Login onLogin={(u) => { setUser(u); setScreen("dashboard"); }} />}
-      {screen === "dashboard" && user && (
-        <Dashboard
-          user={user}
-          studyGuideViewed={studyGuideViewed}
-          newHirePassed={newHirePassed}
-          onStartStudy={startStudy}
-          onStartNewHire={startNewHire}
-          onStartCSR={startCSR}
-          onStartEndless={startEndless}
-        />
+      {pendingSaveResult ? (
+        <MagicLinkConfirmation result={pendingSaveResult} onContinue={() => setPendingSaveResult(null)} />
+      ) : (
+        <React.Fragment>
+          {screen === "login" && (
+            <Login
+              onLogin={(u) => { setPendingLogin(u); setScreen("confirmstore"); }}
+              initialName={pendingLogin && pendingLogin.name}
+              initialStore={pendingLogin && pendingLogin.store}
+            />
+          )}
+          {screen === "confirmstore" && pendingLogin && (
+            <ConfirmStore
+              name={pendingLogin.name}
+              store={pendingLogin.store}
+              onBack={() => setScreen("login")}
+              onConfirm={() => {
+                setUser({ name: pendingLogin.name, store: pendingLogin.store, role: "New Hire" });
+                setScreen("dashboard");
+              }}
+            />
+          )}
+          {screen === "dashboard" && user && (
+            <Dashboard
+              user={user}
+              studyGuideViewed={studyGuideViewed}
+              newHirePassed={newHirePassed}
+              isDark={isDark}
+              onToggleDark={() => setIsDark((d) => !d)}
+              onStartStudy={startStudy}
+              onStartNewHire={guardedStart(startNewHire)}
+              onStartCSR={guardedStart(startCSR)}
+              onStartEndless={guardedStart(startEndless)}
+              hasAccountSession={hasAccountSession}
+              onViewAccount={() => setScreen("account")}
+              resumeState={resumeState}
+              onResume={resumeCert}
+              onDiscardResume={discardResume}
+            />
+          )}
+          {screen === "studyguide" && <StudyGuide onFinish={finishStudy} onExit={() => setScreen("dashboard")} />}
+          {screen === "timerwarning" && (
+            <TimerWarningScreen onContinue={acknowledgeTimerWarning} onBack={() => { setPendingStartFn(null); setScreen("dashboard"); }} />
+          )}
+          {screen === "account" && (
+            <AccountScreen onBack={() => setScreen("dashboard")} />
+          )}
+          {screen === "quiz" && currentQuestion && renderQuestion(
+            currentQuestion,
+            { index: qIndex, total: fixedQuestions ? fixedQuestions.length : null, correctCount, wrongCount, onEndSession: mode === "endless" ? endSession : null, extraHeader: mode === "endless" ? <CategoryToggles enabled={enabledCategories} onToggle={toggleCategory} /> : null, revealAnswer: mode === "endless" || mode === "retry" },
+            handleAnswer
+          )}
+          {screen === "results" && user && (
+            <Results user={user} results={results} mode={mode} onRestart={() => setScreen("dashboard")} onPass={() => setNewHirePassed(true)} onRetryMissed={startRetry} />
+          )}
+        </React.Fragment>
       )}
-      {screen === "studyguide" && <StudyGuide onFinish={finishStudy} onExit={() => setScreen("dashboard")} />}
-      {screen === "quiz" && currentQuestion && renderQuestion(
-        currentQuestion,
-        { index: qIndex, total: fixedQuestions ? fixedQuestions.length : null, correctCount, wrongCount, onEndSession: mode === "endless" ? endSession : null, extraHeader: mode === "endless" ? <CategoryToggles enabled={enabledCategories} onToggle={toggleCategory} /> : null },
-        handleAnswer
-      )}
-      {screen === "results" && user && (
-        <Results user={user} results={results} mode={mode} onRestart={() => setScreen("dashboard")} onPass={() => setNewHirePassed(true)} />
-      )}
+    </div>
+  );
+}
+
+function MagicLinkConfirmation({ result, onContinue }) {
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 20px", background: C.bg }}>
+      <div style={{ width: "100%", maxWidth: 400, background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 30, textAlign: "center" }}>
+        <p style={{ fontSize: 40, margin: "0 0 12px" }}>✓</p>
+        <h1 style={{ fontFamily: C.displayFont, fontSize: 26, fontWeight: 800, color: C.white, margin: "0 0 8px", textTransform: "uppercase" }}>Account Created</h1>
+        <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 20, lineHeight: 1.5 }}>
+          {result.name}, your {result.examType} result ({result.score}%) is saved. Your store will review and activate your account.
+        </p>
+        <button onClick={onContinue} style={{ width: "100%", background: C.blue, color: "white", fontWeight: 800, fontSize: 15, padding: "13px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer" }}>
+          Continue
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TimerWarningScreen({ onContinue, onBack }) {
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 20px", background: C.bg }}>
+      <div style={{ width: "100%", maxWidth: 400, background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 30, textAlign: "center" }}>
+        <p style={{ fontSize: 40, margin: "0 0 12px" }}>⏱</p>
+        <h1 style={{ fontFamily: C.displayFont, fontSize: 26, fontWeight: 800, color: C.white, margin: "0 0 10px", textTransform: "uppercase" }}>Heads Up — It's Timed</h1>
+        <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 20, lineHeight: 1.6 }}>
+          Most questions give you 10–15 seconds to answer, and specialty builds get a bit more. Don't worry about missing a few — that's normal. Answer as fast as you can and keep moving.
+        </p>
+        <button onClick={onContinue} style={{ width: "100%", background: C.blue, color: "white", fontWeight: 800, fontSize: 15, padding: "13px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer", marginBottom: 10 }}>
+          Got It — Let's Go
+        </button>
+        <button onClick={onBack} style={{ width: "100%", background: "transparent", color: C.textMuted, fontWeight: 700, fontSize: 14, padding: "10px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer" }}>
+          ← Not Yet
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AccountScreen({ onBack }) {
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState(null);
+  const [history, setHistory] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const results = await Promise.all([fetchOwnProfile(), fetchOwnCertHistory()]);
+      if (cancelled) return;
+      setProfile(results[0]);
+      setHistory(results[1]);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  return (
+    <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg }}>
+      <div style={{ maxWidth: 512, margin: "0 auto" }}>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: C.textMuted, fontSize: 13, fontWeight: 700, cursor: "pointer", padding: 0, marginBottom: 20 }}>
+          ← Back
+        </button>
+
+        {loading ? (
+          <p style={{ color: C.textMuted, fontSize: 14 }}>Loading your account…</p>
+        ) : !profile ? (
+          <p style={{ color: C.textMuted, fontSize: 14 }}>Couldn't load your account — try signing in again.</p>
+        ) : (
+          <React.Fragment>
+            <h1 style={{ fontFamily: C.displayFont, fontSize: 32, fontWeight: 800, color: C.white, textTransform: "uppercase", margin: "0 0 4px" }}>{profile.name}</h1>
+            <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 14 }}>Store {profile.store}</p>
+            <div style={{ display: "inline-block", background: profile.activated ? C.greenSoft : C.panelDim, border: `2px solid ${profile.activated ? C.green : C.panelBorder}`, borderRadius: 999, padding: "5px 14px", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: profile.activated ? C.green : C.textMuted, marginBottom: 28 }}>
+              {profile.activated ? "✓ Activated" : "Pending Review"}
+            </div>
+
+            <p style={{ fontFamily: C.displayFont, fontSize: 20, fontWeight: 700, textTransform: "uppercase", color: C.white, margin: "0 0 12px" }}>Certification History</p>
+            {history.length === 0 ? (
+              <p style={{ color: C.textFaint, fontSize: 14 }}>No cert attempts saved yet.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {history.map((h) => (
+                  <div key={h.id} style={{ background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div>
+                      <p style={{ color: C.white, fontWeight: 700, margin: 0 }}>{h.exam_type}</p>
+                      <p style={{ color: C.textFaint, fontSize: 12, margin: "2px 0 0" }}>{new Date(h.taken_at).toLocaleDateString()}</p>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <p style={{ fontFamily: C.displayFont, fontSize: 22, fontWeight: 800, color: h.pass ? C.green : C.red, margin: 0 }}>{h.score}%</p>
+                      <p style={{ color: C.textFaint, fontSize: 11, margin: 0, textTransform: "uppercase", fontWeight: 700 }}>{h.pass ? "Pass" : "Fail"}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </React.Fragment>
+        )}
+      </div>
     </div>
   );
 }
