@@ -649,13 +649,10 @@ function makeFlatCheeseTypeQFromCombo(c) {
   return { type: "Portion Recall", kind: "type", data: { ingredient: c.ingredient, unit: c.unit, context: `${c.size}" Pizza — All Pizzas`, answer: String(c.answer) } };
 }
 
-const NEWHIRE_PORTION_GROUPS = PORTION_GROUPS.filter((g) => g.key === "sliced-meats" || g.key === "heavy-toppings");
-
 function generateNewHireCert() {
   const crustQs = weightedSampleWithoutReplacement(CRUST_WEIGHTED_PAIRS, 4).map(makeCrustTypeQ);
-  const sauceQs = sampleWithoutReplacement(SAUCE_TILES, 3).map((t) => (Math.random() < 0.5 ? makeCodeTypeQ(t) : makeReverseCodeTypeQ(t)));
-  const portionQs = weightedSampleWithoutReplacement(weightedPortionCombos(NEWHIRE_PORTION_GROUPS), 8).map(makePortionTypeQFromCombo);
-  return shuffle([...crustQs, ...sauceQs, ...portionQs]);
+  const buildQs = sampleWithoutReplacement(SPECIALTY_BUILDS, 5).map((b) => ({ type: "Specialty Build", kind: "build", data: b }));
+  return shuffle([...crustQs, ...buildQs]);
 }
 
 const TOPPING_CODE_TILES = CODES.filter((t) => !SAUCE_TILES.includes(t));
@@ -670,8 +667,224 @@ function generateCSRCert() {
   return shuffle([...toppingCodeQs, ...sauceCodeQs, ...portionQs, ...flatCheeseQs, ...crustQs, ...buildQs]);
 }
 
-const NEWHIRE_QUESTION_COUNT = 4 + 3 + 8;
+const NEWHIRE_QUESTION_COUNT = 4 + 5; // 9 — crust/size + all 5 specialty builds, broad knowledge only
 const CSR_QUESTION_COUNT = 10 + 2 + 8 + 2 + 2 + 3;
+
+// ---------------------------------------------------------------------------
+// DAY 1 ONBOARDING — separate from New Hire/CSR (menu knowledge). Real
+// security, sanitation, phone script, and apparel facts, sourced from the
+// official June 2026 Domino's Operating Standards plus store-confirmed
+// specifics (safe delay, till limit, carryover procedure). Everything here
+// has been cross-checked against an authoritative source — nothing guessed.
+// ---------------------------------------------------------------------------
+const DAY1_SECURITY_QUESTIONS = [
+  { category: "Security & Safety", prompt: "A security callback is required before delivery leaves for all of the following EXCEPT:", answer: "Regular repeat customers paying by card", choices: ["First-time cash customers", "Orders with no Caller ID", "Suspicious orders", "Regular repeat customers paying by card"] },
+  { category: "Security & Safety", prompt: "How long is the delay on the store's time-delay safe?", answer: "9 minutes", choices: ["5 minutes", "7 minutes", "9 minutes", "12 minutes"] },
+  { category: "Security & Safety", prompt: "What's the maximum amount allowed in a single till/cash drawer?", answer: "$150", choices: ["$75", "$100", "$125", "$150"] },
+  { category: "Security & Safety", prompt: "Bills larger than what denomination must be dropped into the safe immediately?", answer: "$5", choices: ["$1", "$5", "$10", "$20"] },
+  { category: "Security & Safety", prompt: "Back and side doors not used as a customer entrance must be:", answer: "Locked at all times", choices: ["Propped open for ventilation", "Locked at all times", "Locked only after 9pm", "Unlocked during deliveries"] },
+  { category: "Security & Safety", prompt: "What's the maximum number of dough trays that should be carried at one time?", answer: "2", choices: ["1", "2", "3", "4"] },
+  { category: "Security & Safety", prompt: "Taking or sharing photos or videos while at work is:", answer: "Never allowed", choices: ["Allowed with manager permission", "Never allowed", "Allowed during breaks only", "Allowed if customers aren't in frame"] },
+  { category: "Security & Safety", prompt: "Which of the following is NOT permitted on store premises while working?", answer: "Pepper spray", choices: ["Pepper spray", "A cell phone", "Car keys", "A wallet"] },
+  { category: "Security & Safety", prompt: "Children may be allowed beyond the customer area if they are:", answer: "Immediate family of the store owner, directly supervised", choices: ["Any customer's kids, supervised", "Immediate family of the store owner, directly supervised", "Over the age of 10", "Never, under any circumstance"] },
+  { category: "Security & Safety", prompt: "What kind of animals are permitted beyond the customer area?", answer: "Service animals required under the ADA", choices: ["Any friendly pet", "Only cats", "Service animals required under the ADA", "No animals, ever"] },
+];
+
+const DAY1_SANITATION_QUESTIONS = [
+  { category: "Sanitation & Prep", prompt: "Which prepped item is the ONE exception to the airtight-lid rule?", answer: "Mushrooms", choices: ["Pepperoni", "Mushrooms", "Onions", "Cheese"] },
+  { category: "Sanitation & Prep", prompt: "How often must utensils be changed out during prep?", answer: "Every 2 hours", choices: ["Every hour", "Every 2 hours", "Every 4 hours", "Once per shift"] },
+  { category: "Sanitation & Prep", prompt: "FIFO stands for:", answer: "First In, First Out", choices: ["First In, First Out", "Food Inventory Freshness Order", "First In, Final Order", "Fresh Items, Fast Out"] },
+  { category: "Sanitation & Prep", prompt: "Which of these is an acceptable way to date a prepped item?", answer: "Either Label King labels or handwritten Sharpie", choices: ["Only Label King labels", "Only handwritten Sharpie", "Either Label King labels or handwritten Sharpie", "Dating isn't required if used same day"] },
+  { category: "Sanitation & Prep", prompt: "What should NEVER be dated?", answer: "Lids", choices: ["Sauce containers", "Lids", "Dough trays", "Cheese bins"] },
+  { category: "Sanitation & Prep", prompt: "In the 3-compartment sink, what's in the middle basin?", answer: "Rinse", choices: ["Soap", "Rinse", "Sanitize", "Nothing, it's a drying rack"] },
+  { category: "Sanitation & Prep", prompt: "When should you wash your hands?", answer: "Whenever changing stations or going outside", choices: ["Only before starting a shift", "Only after using the restroom", "Whenever changing stations or going outside", "Once every 2 hours"] },
+  { category: "Sanitation & Prep", prompt: "Dish water should be changed:", answer: "When it goes cold or gets very dirty", choices: ["Every 30 minutes, no exceptions", "Once per shift only", "When it goes cold or gets very dirty", "Only at closing"] },
+  { category: "Sanitation & Prep", prompt: "A black carryover bucket should be:", answer: "Never refilled", choices: ["Refilled once per day", "Never refilled", "Refilled and dated", "Used only for sauce"] },
+  { category: "Sanitation & Prep", prompt: "A clear carryover bucket may be refilled, but must be:", answer: "Dated when put into use", choices: ["Washed twice first", "Dated when put into use", "Approved by a manager each time", "Used within 1 hour"] },
+];
+
+const DAY1_PHONE_QUESTIONS = [
+  { category: "Phone & Customer Service", prompt: "WOW the Customer means:", answer: "Apologize, give them what they want, give them something extra", choices: ["Apologize, give them what they want, give them something extra", "Offer a full refund immediately", "Transfer them to a manager", "Give them a free pizza"] },
+  { category: "Phone & Customer Service", prompt: "When should you offer a special or coupon to a customer?", answer: "Only if the customer asks for one", choices: ["Always, at the start of every call", "Only if the customer asks for one", "Never", "Only on weekends"] },
+  { category: "Phone & Customer Service", prompt: "The store greeting must be said:", answer: "Exactly as written", choices: ["In your own words, casually", "Exactly as written", "Only during dinner rush", "Only if a manager is present"] },
+  { category: "Phone & Customer Service", prompt: "When should you repeat the customer's order back to them?", answer: "At some point before asking for payment", choices: ["You don't need to", "Only if they ask", "At some point before asking for payment", "Only for delivery orders"] },
+];
+
+const DAY1_APPAREL_QUESTIONS = [
+  { category: "Apparel & Appearance", prompt: "What color can an undershirt be, if worn under the logo shirt?", answer: "White, black, or gray only", choices: ["Any color", "White, black, or gray only", "Red or blue only", "Undershirts aren't allowed"] },
+  { category: "Apparel & Appearance", prompt: "How short can shorts or skirts be?", answer: "No shorter than 4 inches above the knee", choices: ["No shorter than 2 inches above the knee", "No shorter than 4 inches above the knee", "Any length is fine", "Must reach the ankle"] },
+  { category: "Apparel & Appearance", prompt: "Which of these is allowed as jewelry while working?", answer: "A simple necklace", choices: ["Dangle earrings", "A simple necklace", "Hoop earrings over 1 inch", "Multiple rings on each hand"] },
+  { category: "Apparel & Appearance", prompt: "How far can fingernails extend past the fingertip?", answer: "They can't, unless wearing food-grade gloves", choices: ["They can't, unless wearing food-grade gloves", "Up to 1 inch", "Up to 1/2 inch", "There's no rule"] },
+  { category: "Apparel & Appearance", prompt: "How long can facial hair be?", answer: "Up to 1 inch, clean and neatly trimmed", choices: ["Any length, as long as it's clean", "Up to 1 inch, clean and neatly trimmed", "Facial hair isn't allowed", "Up to 3 inches"] },
+  { category: "Apparel & Appearance", prompt: "Where must a nametag be worn?", answer: "Right side of the shirt, vest, jacket, or apron", choices: ["Left side of the shirt", "Right side of the shirt, vest, jacket, or apron", "On the hat only", "Nametags are optional"] },
+  { category: "Apparel & Appearance", prompt: "Tobacco use, including vapes, is allowed:", answer: "Never, in the store or while in logo apparel", choices: ["During breaks only", "Never, in the store or while in logo apparel", "Outside the building only", "With manager permission"] },
+  { category: "Apparel & Appearance", prompt: "What must be worn while preparing or handling food?", answer: "An apron, clean and tied full-length", choices: ["An apron, clean and tied full-length", "An apron only if requested", "Gloves at all times, no apron needed", "Nothing extra is required"] },
+];
+
+function generateDay1OnboardingCert() {
+  const security = sampleWithoutReplacement(DAY1_SECURITY_QUESTIONS, 6).map((q) => ({ type: "Policy", kind: "mc", data: q }));
+  const sanitation = sampleWithoutReplacement(DAY1_SANITATION_QUESTIONS, 6).map((q) => ({ type: "Policy", kind: "mc", data: q }));
+  const phone = sampleWithoutReplacement(DAY1_PHONE_QUESTIONS, 3).map((q) => ({ type: "Policy", kind: "mc", data: q }));
+  const apparel = sampleWithoutReplacement(DAY1_APPAREL_QUESTIONS, 5).map((q) => ({ type: "Policy", kind: "mc", data: q }));
+  return shuffle([...security, ...sanitation, ...phone, ...apparel]);
+}
+const DAY1_QUESTION_COUNT = 6 + 6 + 3 + 5;
+
+// ---------------------------------------------------------------------------
+// THE DOMINO — new product launch (parmesan-crusted, pan-baked, cut in half,
+// sandwich box). Standalone module, ungated, separate from menu certs since
+// it's tied to a launch date rather than permanent menu knowledge. Sourced
+// from the official In-Store Training Playbook — every number here is a
+// verified fact from that document, not an estimate.
+// ---------------------------------------------------------------------------
+const DOMINO_VIDEO_ID = "bfGmUY3wFlk"; // unlisted — official Domino's training video
+
+const DOMINO_PORTION_QUESTIONS = [
+  { ingredient: "Butter-Flavored Oil", unit: "oz", context: "Pan prep — bottom of pan", answer: "0.2", choices: ["0.1", "0.2", "0.3", "0.5"] },
+  { ingredient: "Parm Shake-On", unit: "oz", context: "Pan prep — on top of butter oil", answer: "0.3", choices: ["0.2", "0.3", "0.5", "1.0"] },
+  { ingredient: "Provolone", unit: "oz", context: "Cheese layer", answer: "2", choices: ["1", "1.5", "2", "3"] },
+  { ingredient: "Pizza Cheese", unit: "oz", context: "Cheese layer", answer: "2", choices: ["1", "1.5", "2", "3"] },
+  { ingredient: "Pizza Sauce", unit: "oz", context: "Standard sauce", answer: "2", choices: ["1", "1.5", "2", "2.5"] },
+  { ingredient: "Any Other Sauce", unit: "oz", context: "Non-standard sauce substitution", answer: "1.0", choices: ["0.5", "1.0", "1.5", "2.0"] },
+  { ingredient: "Extra Pizza Cheese", unit: "oz", context: "Cheese-only version, added on top of sauce", answer: "1.0", choices: ["0.5", "1.0", "1.5", "2.0"] },
+  { ingredient: "Garlic Oil Blend (GOB)", unit: "oz", context: "Postbake — applied evenly over entire surface", answer: "0.3", choices: ["0.2", "0.3", "0.5", "1.0"] },
+  { ingredient: "Pepperoni or Ham", unit: "slices", context: "1-Topping", answer: "12", choices: ["9", "10", "12", "15"] },
+  { ingredient: "Pepperoni or Ham", unit: "slices", context: "2-Topping", answer: "9", choices: ["6", "9", "10", "12"] },
+  { ingredient: "Pepperoni or Ham", unit: "slices", context: "3-Topping", answer: "6", choices: ["4", "6", "9", "12"] },
+  { ingredient: "All Other Toppings", unit: "oz", context: "1-Topping", answer: "1.5", choices: ["0.7", "1.0", "1.5", "2.0"] },
+  { ingredient: "All Other Toppings", unit: "oz", context: "2-Topping", answer: "1.0", choices: ["0.7", "1.0", "1.5", "2.0"] },
+  { ingredient: "All Other Toppings", unit: "oz", context: "3-Topping", answer: "0.7", choices: ["0.5", "0.7", "1.0", "1.5"] },
+];
+
+const DOMINO_POLICY_QUESTIONS = [
+  { prompt: "How long is prepped Domino good for using Day 1-4 dough?", answer: "4 hours", choices: ["All day", "6 hours", "4 hours", "8 hours"] },
+  { prompt: "How long is prepped Domino good for using Day 5-6 dough?", answer: "2 hours", choices: ["4 hours", "2 hours", "1 hour", "6 hours"] },
+  { prompt: "What's the recommended minimum proof time for Domino in its prepped pan?", answer: "At least 1 hour", choices: ["30 minutes", "At least 1 hour", "3 hours", "No proof time needed"] },
+  { prompt: "When stretching the dough into the pan, which side should be down?", answer: "Sticky side down", choices: ["Sticky side down", "Sticky side up", "It doesn't matter", "Whichever side was up during proofing"] },
+  { prompt: "One prepped dough patty, once cut in half, makes how many individual Dominos?", answer: "2", choices: ["1", "2", "3", "4"] },
+  { prompt: "How high can prepped Domino pans be stacked?", answer: "6", choices: ["3", "6", "10", "20"] },
+  { prompt: "What box does a Domino go into?", answer: "13\" side sandwich box", choices: ["10\" square box", "13\" side sandwich box", "Standard 12\" pizza box", "16\" party box"] },
+  { prompt: "Does the box need to be lined with anything?", answer: "A sandwich liner", choices: ["No liner needed", "A sandwich liner", "Wax paper only", "A pizza screen"] },
+  { prompt: "How is a baked Domino cut?", answer: "Cut in half with a rocker blade", choices: ["Cut into 3 equal slices", "Cut in half with a rocker blade", "Not cut, boxed whole", "Cut into 4 quarters"] },
+  { prompt: "When removing a Domino from the pan after baking, which side do you remove it from, and with what?", answer: "The short side, using a black spatula", choices: ["The long side, using pan grippers", "The short side, using a black spatula", "Either side, using tongs", "The short side, using pan grippers"] },
+  { prompt: "How should a Domino be loaded into the oven?", answer: "Parallel to the oven opening", choices: ["Perpendicular to the oven opening", "Parallel to the oven opening", "At a 45-degree angle", "Orientation doesn't matter"] },
+  { prompt: "Where should prepped Dominos NEVER be stored?", answer: "The walk-in cooler", choices: ["The walk-in cooler", "A dedicated shelf pan", "Near the makeline", "The dough retarder"] },
+  { prompt: "What does GOB stand for?", answer: "Garlic Oil Blend", choices: ["Garlic Oil Base", "Garlic Oil Blend", "Great Original Bake", "Golden Oven Bread"] },
+  { prompt: "How many pans and lids should your store have received for the Domino launch?", answer: "36 pans, 6 lids", choices: ["24 pans, 4 lids", "36 pans, 6 lids", "48 pans, 8 lids", "12 pans, 2 lids"] },
+  { prompt: "Before first use, new pans should be:", answer: "Washed, rinsed, sanitized, and run empty through the oven", choices: ["Used as-is, no prep needed", "Washed, rinsed, sanitized, and run empty through the oven", "Only rinsed with water", "Soaked in oil overnight"] },
+  { prompt: "Why is weighing your butter important?", answer: "Too much butter makes it difficult for the dough to fit the pan", choices: ["It's required by law", "Too much butter makes it difficult for the dough to fit the pan", "It affects the cut count", "It changes the bake color"] },
+  { prompt: "What should you use to help stretched dough not stick to the pan?", answer: "A designated pan-stretching tool — no cornmeal needed", choices: ["Cornmeal", "Flour", "A designated pan-stretching tool — no cornmeal needed", "Extra butter"] },
+  { prompt: "Stacking prepped Domino pans more than 6 high risks:", answer: "The stack leaning and pans getting stuck together", choices: ["Nothing, it's just a suggestion", "The stack leaning and pans getting stuck together", "Faster proofing", "Better airflow"] },
+];
+
+function generateDominoCert() {
+  const portionQs = sampleWithoutReplacement(DOMINO_PORTION_QUESTIONS, 9).map((q) => ({ type: "Portion Recall", kind: "mc", data: q }));
+  const policyQs = sampleWithoutReplacement(DOMINO_POLICY_QUESTIONS, 10).map((q) => ({ type: "Policy", kind: "mc", data: q }));
+  return shuffle([...portionQs, ...policyQs]);
+}
+const DOMINO_QUESTION_COUNT = 9 + 10;
+
+function certModeLabel(mode) {
+  if (mode === "newhire") return "New Hire";
+  if (mode === "csr") return "CSR";
+  if (mode === "onboarding") return "Day 1 Onboarding";
+  if (mode === "domino") return "The Domino";
+  return "Certification";
+}
+
+const ONBOARDING_REFERENCE_CARDS = [
+  {
+    title: "Security & Safety",
+    items: [
+      "A security callback is required before delivery leaves for: first-time cash customers, orders with no Caller ID, and any suspicious order.",
+      "The time-delay safe has a 9-minute delay.",
+      "Max in a single till/cash drawer: $150.",
+      "Any bill larger than $5 gets dropped into the safe immediately.",
+      "Back and side doors not used as a customer entrance stay locked at all times.",
+      "Carry no more than 2 dough trays at a time.",
+      "No photos or videos, ever, while at work.",
+      "Weapons and weapon paraphernalia (including pepper spray, mace, most knives) are never allowed on your person, in your vehicle, or on store premises while working.",
+      "Children beyond the customer area: only immediate family of the store owner, directly supervised.",
+      "Animals beyond the customer area: only service animals required under the ADA.",
+    ],
+  },
+  {
+    title: "Sanitation & Prep",
+    items: [
+      "FIFO — First In, First Out.",
+      "All prepped items need airtight lids, except mushrooms.",
+      "Utensils get changed out every 2 hours.",
+      "Dating product: Label King labels or handwritten Sharpie are both fine.",
+      "Never date lids.",
+      "3-compartment sink, left to right: soap → rinse → sanitize.",
+      "Wash your hands whenever you change stations or go outside.",
+      "Aprons worn and tied, full-length, whenever handling food.",
+      "Only prep into clean, dry, sanitized containers. Never refill bottles.",
+      "Dish water gets changed when it's cold or visibly dirty — not on a fixed schedule.",
+      "Carryover buckets: black is never refilled. Clear can be refilled, but must be dated when put into use.",
+    ],
+  },
+  {
+    title: "Phone & Customer Service",
+    items: [
+      "WOW the Customer = Apologize, give them what they want, give them something extra.",
+      "Never offer a special or coupon unless the customer asks for one.",
+      "The store greeting has to be said exactly as written — no paraphrasing.",
+      "Repeat the customer's order back to them at some point before asking for payment.",
+    ],
+  },
+  {
+    title: "Apparel & Appearance",
+    items: [
+      "Undershirts, sweatshirts, or hoodies worn under the logo shirt: white, black, or gray only.",
+      "Shorts and skirts: no shorter than 4 inches above the knee.",
+      "Jewelry: simple necklace, one simple watch, wedding band (plain, if prepping food), medical alert jewelry are fine. No dangle earrings. Hoops/gauges max 3/4 inch.",
+      "Fingernails can't extend past the fingertip unless you're wearing food-grade gloves. No polish otherwise.",
+      "Facial hair up to 1 inch, clean and neatly trimmed.",
+      "Nametags go on the right side — shirt, vest, jacket, or apron.",
+      "No tobacco of any kind (including vapes) in the store or while wearing Domino's logo apparel.",
+    ],
+  },
+];
+
+const DOMINO_REFERENCE_CARDS = [
+  {
+    title: "Assembly & Portions",
+    items: [
+      "Pan prep: 0.2 oz butter-flavored oil on the bottom, then 0.3 oz parm shake-on on top of that.",
+      "Cheese: 2 oz Provolone + 2 oz Pizza Cheese.",
+      "Sauce: 2 oz standard Pizza Sauce. Any other sauce: 1.0 oz.",
+      "Cheese-only version: add an extra 1.0 oz of pizza cheese on top of the sauce.",
+      "Toppings — Pepperoni & Ham (slices): 1-Top 12, 2-Top 9, 3-Top 6.",
+      "Toppings — All Other Toppings (oz): 1-Top 1.5, 2-Top 1.0, 3-Top 0.7.",
+      "3-topping max. All toppings go on top of the sauce.",
+      "Postbake: 0.3 oz Garlic Oil Blend (GOB), applied evenly over the entire surface after baking.",
+    ],
+  },
+  {
+    title: "Dough & Timing",
+    items: [
+      "Prepped Domino using Day 1-4 dough is good for 4 hours.",
+      "Prepped Domino using Day 5-6 dough is good for only 2 hours.",
+      "Let it proof in the prepped pan for at least 1 hour.",
+      "Stretch the dough sticky-side down.",
+      "One prepped dough patty, cut in half, makes 2 individual Dominos — not 4.",
+      "Don't stack prepped pans more than 6 high.",
+    ],
+  },
+  {
+    title: "Bake & Packaging",
+    items: [
+      "Load into the oven parallel to the oven opening.",
+      "Remove the pan from the oven using pan grippers, gripping the long side.",
+      "Remove Domino from the pan using a black spatula, from the short side.",
+      "Baked Domino gets cut in half with a rocker blade — one straight cut, not three slices.",
+      "Packaging: 13\" side sandwich box, with a sandwich liner.",
+      "Never store prepped Domino in the walk-in — it hurts product quality.",
+      "New pans: wash, rinse, sanitize, and run empty through the oven before first use. Store should have received 36 pans and 6 lids.",
+    ],
+  },
+];
 
 function useCountdown(seconds, active, onExpire) {
   const [timeLeft, setTimeLeft] = useState(seconds);
@@ -864,7 +1077,7 @@ function ConfirmStore({ name, store, onConfirm, onBack }) {
   );
 }
 
-function Dashboard({ user, studyGuideViewed, newHirePassed, isDark, onToggleDark, onStartStudy, onStartNewHire, onStartCSR, onStartEndless, hasAccountSession, onViewAccount, resumeState, onResume, onDiscardResume }) {
+function Dashboard({ user, studyGuideViewed, newHirePassed, isDark, onToggleDark, onStartStudy, onStartNewHire, onOpenCSRPath, onStartEndless, onOpenDomino, hasAccountSession, onViewAccount, resumeState, onResume, onDiscardResume }) {
   return (
     <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg, fontFamily: C.bodyFont }}>
       <div style={{ maxWidth: 512, margin: "0 auto" }}>
@@ -887,7 +1100,7 @@ function Dashboard({ user, studyGuideViewed, newHirePassed, isDark, onToggleDark
         {resumeState && (
           <div style={{ background: C.blueSoft, border: `2px solid ${C.blue}`, borderRadius: C.cardRadius, padding: 16, marginBottom: 14 }}>
             <p style={{ fontFamily: C.displayFont, fontSize: 18, fontWeight: 700, textTransform: "uppercase", color: C.white, margin: "0 0 4px" }}>
-              Unfinished {resumeState.mode === "newhire" ? "New Hire" : "CSR"} Certification
+              Unfinished {certModeLabel(resumeState.mode)} Certification
             </p>
             <p style={{ color: C.textMuted, fontSize: 13, marginBottom: 12 }}>
               You stopped at question {resumeState.qIndex + 1} of {resumeState.certQuestions.length}.
@@ -915,6 +1128,18 @@ function Dashboard({ user, studyGuideViewed, newHirePassed, isDark, onToggleDark
           <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
         </div>
 
+        <div onClick={onOpenDomino} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 6, background: C.red, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>🍕</div>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ color: C.white, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+              The Domino
+              <span style={{ fontSize: 11, fontWeight: 700, color: C.red, background: C.redSoft, padding: "2px 8px", borderRadius: 6, textTransform: "uppercase", letterSpacing: "0.03em" }}>New</span>
+            </h2>
+            <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>{DOMINO_QUESTION_COUNT} questions · new product launch prep</p>
+          </div>
+          <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
+        </div>
+
         <div onClick={onStartEndless} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
           <div style={{ width: 48, height: 48, borderRadius: 6, background: C.purple, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>∞</div>
           <div style={{ flex: 1 }}>
@@ -931,13 +1156,13 @@ function Dashboard({ user, studyGuideViewed, newHirePassed, isDark, onToggleDark
               New Hire Certification
               {newHirePassed && <span style={{ fontSize: 11, fontWeight: 700, color: C.green, background: C.greenSoft, padding: "2px 8px", borderRadius: 6 }}>✓ Passed</span>}
             </h2>
-            <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>{NEWHIRE_QUESTION_COUNT} questions · crusts, sauces &amp; basic portions · pass at 90%</p>
+            <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>{NEWHIRE_QUESTION_COUNT} questions · crust &amp; size, specialty builds · pass at 90%</p>
           </div>
           <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
         </div>
 
         {newHirePassed ? (
-          <div onClick={onStartCSR} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16 }}>
+          <div onClick={onOpenCSRPath} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16 }}>
             <div style={{ width: 48, height: 48, borderRadius: 6, background: C.red, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>🏆</div>
             <div style={{ flex: 1 }}>
               <h2 style={{ color: C.white, fontWeight: 700, margin: 0 }}>CSR Certification</h2>
@@ -1088,6 +1313,222 @@ function StudyPanBuildCard({ data }) {
           {data.note}
         </p>
       )}
+    </div>
+  );
+}
+
+function ReferenceCard({ eyebrow, title, items }) {
+  return (
+    <div>
+      <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, marginBottom: 4 }}>{eyebrow}</p>
+      <h2 style={{ fontFamily: C.displayFont, color: C.white, fontSize: 26, fontWeight: 800, textTransform: "uppercase", margin: "0 0 16px" }}>{title}</h2>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {items.map((line, idx) => (
+          <div key={idx} style={{ background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: "12px 14px" }}>
+            <p style={{ color: C.white, fontSize: 14, lineHeight: 1.5, margin: 0 }}>{line}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ReferenceStudyGuide({ eyebrow, cards, onFinish, onExit }) {
+  const [i, setI] = useState(0);
+  const card = cards[i];
+  const isLast = i === cards.length - 1;
+
+  return (
+    <div style={{ minHeight: "100vh", padding: "40px 24px", display: "flex", flexDirection: "column", background: C.bg }}>
+      <div style={{ maxWidth: 512, margin: "0 auto", width: "100%", flex: 1, display: "flex", flexDirection: "column" }}>
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, color: C.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+            <span>Card {i + 1} of {cards.length}</span>
+            <button onClick={onExit} style={{ background: "none", border: `1px solid ${C.panelBorder}`, color: C.textMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 10px", borderRadius: 6, cursor: "pointer" }}>
+              ← Home
+            </button>
+          </div>
+          <div style={{ height: 6, background: C.track, borderRadius: 6, overflow: "hidden" }}>
+            <div style={{ height: "100%", background: C.blue, transition: "width 0.3s", width: `${((i + 1) / cards.length) * 100}%` }} />
+          </div>
+        </div>
+
+        <div style={{ flex: 1 }}>
+          <ReferenceCard eyebrow={eyebrow} title={card.title} items={card.items} />
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+          <button
+            onClick={() => setI((v) => Math.max(0, v - 1))}
+            disabled={i === 0}
+            style={{ flex: 1, background: C.panel, border: `1px solid ${C.panelBorder}`, color: C.white, fontWeight: 700, padding: "12px 0", borderRadius: 4, cursor: i === 0 ? "default" : "pointer", opacity: i === 0 ? 0.4 : 1 }}
+          >
+            ← Back
+          </button>
+          {isLast ? (
+            <button onClick={onFinish} style={{ flex: 2, background: C.green, border: "none", color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 4, cursor: "pointer" }}>
+              Finish ✓
+            </button>
+          ) : (
+            <button
+              onClick={() => setI((v) => Math.min(cards.length - 1, v + 1))}
+              style={{ flex: 2, background: C.blue, border: "none", color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 4, cursor: "pointer" }}
+            >
+              Next →
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CSRPathHub({ onboardingPassed, onOpenOnboarding, onTest, onBack }) {
+  return (
+    <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg }}>
+      <div style={{ maxWidth: 512, margin: "0 auto" }}>
+        <button onClick={onBack} style={{ background: "none", border: `1px solid ${C.panelBorder}`, color: C.textMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 10px", borderRadius: 6, cursor: "pointer", marginBottom: 20 }}>
+          ← Home
+        </button>
+        <h1 style={{ fontFamily: C.displayFont, fontSize: 32, fontWeight: 800, color: C.white, textTransform: "uppercase", margin: "0 0 4px" }}>CSR Certification</h1>
+        <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 28 }}>Pass Day 1 Onboarding first, then take the full CSR test.</p>
+
+        <div onClick={onOpenOnboarding} style={{ cursor: "pointer", background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 20, display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
+          <div style={{ width: 48, height: 48, borderRadius: C.cardRadius, background: C.blue, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>📋</div>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ color: C.white, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+              Day 1 Onboarding
+              {onboardingPassed && <span style={{ fontSize: 11, fontWeight: 700, color: C.green, background: C.greenSoft, padding: "2px 8px", borderRadius: 6 }}>✓ Passed</span>}
+            </h2>
+            <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>{DAY1_QUESTION_COUNT} questions · security, sanitation, phone &amp; apparel</p>
+          </div>
+          <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
+        </div>
+
+        {onboardingPassed ? (
+          <div onClick={onTest} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 6, background: C.red, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>🏆</div>
+            <div style={{ flex: 1 }}>
+              <h2 style={{ color: C.white, fontWeight: 700, margin: 0 }}>CSR Certification Test</h2>
+              <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>{CSR_QUESTION_COUNT} questions · full codes, portions &amp; builds · pass at 90%</p>
+            </div>
+            <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
+          </div>
+        ) : (
+          <div style={{ background: C.panelDim, border: `1px solid ${C.panelBorderDim}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16, opacity: 0.6 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 6, background: C.panelBorder, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 20 }}>🔒</div>
+            <div style={{ flex: 1 }}>
+              <h2 style={{ color: C.white, fontWeight: 700, margin: 0 }}>CSR Certification Test</h2>
+              <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>Pass Day 1 Onboarding first to unlock</p>
+            </div>
+            <span style={{ fontSize: 16 }}>🔒</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TrainingVideoScreen({ title, videoId, onContinue, onExit }) {
+  return (
+    <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg }}>
+      <div style={{ maxWidth: 512, margin: "0 auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>{title}</p>
+          <button onClick={onExit} style={{ background: "none", border: `1px solid ${C.panelBorder}`, color: C.textMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 10px", borderRadius: 6, cursor: "pointer" }}>
+            ← Home
+          </button>
+        </div>
+        <div style={{ position: "relative", width: "100%", paddingTop: "56.25%", borderRadius: C.cardRadius, overflow: "hidden", marginBottom: 20, background: "#000" }}>
+          <iframe
+            src={`https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1`}
+            title={title}
+            style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+        <button onClick={onContinue} style={{ width: "100%", background: C.blue, color: "white", fontWeight: 700, fontSize: 16, padding: "13px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer" }}>
+          I've Watched This — Continue
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ModuleHub({ module, videoWatched, studyViewed, onWatchVideo, onStudy, onTest, onBack }) {
+  const info = module === "onboarding"
+    ? { title: "Day 1 Onboarding", desc: `${DAY1_QUESTION_COUNT} questions · security, sanitation, phone & apparel`, icon: "📋", color: C.blue }
+    : { title: "The Domino", desc: `${DOMINO_QUESTION_COUNT} questions · new product launch prep`, icon: "🍕", color: C.red };
+  const hasVideo = module === "domino";
+  const studyLocked = hasVideo && !videoWatched;
+
+  return (
+    <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg }}>
+      <div style={{ maxWidth: 512, margin: "0 auto" }}>
+        <button onClick={onBack} style={{ background: "none", border: `1px solid ${C.panelBorder}`, color: C.textMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 10px", borderRadius: 6, cursor: "pointer", marginBottom: 20 }}>
+          ← Home
+        </button>
+        <h1 style={{ fontFamily: C.displayFont, fontSize: 32, fontWeight: 800, color: C.white, textTransform: "uppercase", margin: "0 0 4px" }}>{info.title}</h1>
+        <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 28 }}>{info.desc}</p>
+
+        {hasVideo && (
+          <div onClick={onWatchVideo} style={{ cursor: "pointer", background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 20, display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
+            <div style={{ width: 48, height: 48, borderRadius: C.cardRadius, background: C.purple, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 18 }}>▶</div>
+            <div style={{ flex: 1 }}>
+              <h2 style={{ color: C.white, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                Watch Video
+                {videoWatched && <span style={{ fontSize: 11, fontWeight: 700, color: C.green, background: C.greenSoft, padding: "2px 8px", borderRadius: 6 }}>✓ Completed</span>}
+              </h2>
+              <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>Official Domino's training video</p>
+            </div>
+            <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
+          </div>
+        )}
+
+        {studyLocked ? (
+          <div style={{ background: C.panelDim, border: `1px solid ${C.panelBorderDim}`, borderRadius: C.cardRadius, padding: 20, display: "flex", alignItems: "center", gap: 16, opacity: 0.6, marginBottom: 14 }}>
+            <div style={{ width: 48, height: 48, borderRadius: C.cardRadius, background: C.panelBorder, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 20 }}>🔒</div>
+            <div style={{ flex: 1 }}>
+              <h2 style={{ color: C.white, fontWeight: 700, margin: 0 }}>Study</h2>
+              <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>Watch the video first to unlock</p>
+            </div>
+            <span style={{ fontSize: 16 }}>🔒</span>
+          </div>
+        ) : (
+          <div onClick={onStudy} style={{ cursor: "pointer", background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 20, display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
+            <div style={{ width: 48, height: 48, borderRadius: C.cardRadius, background: C.green, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>📖</div>
+            <div style={{ flex: 1 }}>
+              <h2 style={{ color: C.white, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                Study
+                {studyViewed && <span style={{ fontSize: 11, fontWeight: 700, color: C.green, background: C.greenSoft, padding: "2px 8px", borderRadius: 6 }}>✓ Completed</span>}
+              </h2>
+              <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>Review everything first, at your own pace — no timer</p>
+            </div>
+            <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
+          </div>
+        )}
+
+        {studyViewed ? (
+          <div onClick={onTest} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 6, background: info.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>{info.icon}</div>
+            <div style={{ flex: 1 }}>
+              <h2 style={{ color: C.white, fontWeight: 700, margin: 0 }}>Take the Test</h2>
+              <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>{info.desc}</p>
+            </div>
+            <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
+          </div>
+        ) : (
+          <div style={{ background: C.panelDim, border: `1px solid ${C.panelBorderDim}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16, opacity: 0.6 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 6, background: C.panelBorder, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 20 }}>🔒</div>
+            <div style={{ flex: 1 }}>
+              <h2 style={{ color: C.white, fontWeight: 700, margin: 0 }}>Take the Test</h2>
+              <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>Complete Study first to unlock</p>
+            </div>
+            <span style={{ fontSize: 16 }}>🔒</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1449,6 +1890,47 @@ function CodeNameTypeQuestion({ item, shellProps, onAnswer }) {
   );
 }
 
+function PolicyMCQuestion({ item, shellProps, onAnswer }) {
+  const [flash, setFlash] = useState(null);
+  const [locked, setLocked] = useState(false);
+  const revealAnswer = shellProps.revealAnswer;
+
+  const handleExpire = useCallback(() => {
+    if (locked) return;
+    setLocked(true);
+    setFlash("wrong");
+    setTimeout(() => onAnswer(false), revealAnswer ? 1800 : 700);
+  }, [locked, onAnswer, revealAnswer]);
+
+  const timeLeft = useCountdown(25, !locked, handleExpire);
+
+  const choose = (choice) => {
+    if (locked) return;
+    setLocked(true);
+    const correct = choice === item.answer;
+    setFlash(correct ? "correct" : "wrong");
+    setTimeout(() => onAnswer(correct), !correct && revealAnswer ? 1800 : 700);
+  };
+
+  return (
+    <QuestionShell {...shellProps}>
+      <FeedbackFlash status={flash} correctAnswer={revealAnswer ? item.answer : null} />
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
+        <TimerRing timeLeft={timeLeft} total={25} />
+        <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>{item.category || "Know Your Store"}</p>
+      </div>
+      <p style={{ fontSize: 19, fontWeight: 700, color: C.white, lineHeight: 1.4, marginBottom: 20 }}>{item.prompt}</p>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
+        {item.choices.map((c) => (
+          <button key={c} onClick={() => choose(c)} disabled={locked} style={{ textAlign: "left", padding: "14px 16px", borderRadius: 6, background: C.panel, border: `1px solid ${C.panelBorder}`, color: C.white, fontWeight: 600, cursor: locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>
+            {c}
+          </button>
+        ))}
+      </div>
+    </QuestionShell>
+  );
+}
+
 function PortionMCQuestion({ item, shellProps, onAnswer }) {
   const [flash, setFlash] = useState(null);
   const [locked, setLocked] = useState(false);
@@ -1617,11 +2099,11 @@ function Results({ user, results, mode, onRestart, onPass, onRetryMissed }) {
   const total = results.length;
   const correct = results.filter((r) => r.correct).length;
   const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
-  const isCertMode = mode === "newhire" || mode === "csr";
+  const isCertMode = mode === "newhire" || mode === "csr" || mode === "onboarding" || mode === "domino";
   const pass = isCertMode ? pct >= 90 : mode === "retry" ? pct === 100 : true;
   const [sent, setSent] = useState(false);
   const missed = results.filter((r) => !r.correct && r.question);
-  const examType = mode === "newhire" ? "New Hire" : mode === "csr" ? "CSR" : null;
+  const examType = mode === "newhire" ? "New Hire" : mode === "csr" ? "CSR" : mode === "onboarding" ? "Day 1 Onboarding" : mode === "domino" ? "Domino" : null;
 
   const [email, setEmail] = useState("");
   const [magicLinkSent, setMagicLinkSent] = useState(false);
@@ -1634,7 +2116,7 @@ function Results({ user, results, mode, onRestart, onPass, onRetryMissed }) {
   }, []);
 
   useEffect(() => {
-    if (mode === "newhire" && pass && onPass) onPass();
+    if ((mode === "newhire" || mode === "onboarding") && pass && onPass) onPass();
   }, [mode, pass, onPass]);
 
   useEffect(() => {
@@ -1667,7 +2149,7 @@ function Results({ user, results, mode, onRestart, onPass, onRetryMissed }) {
   const title = mode === "retry"
     ? (missed.length === 0 ? "All Cleaned Up!" : "Retry Complete")
     : isCertMode ? (pass ? "Certification Passed" : "Not Yet — Retake Needed") : "Practice Session Complete";
-  const subtitle = mode === "newhire" ? "New Hire Certification" : mode === "csr" ? "CSR Certification" : mode === "retry" ? "Missed Question Retry" : "Endless Practice";
+  const subtitle = mode === "retry" ? "Missed Question Retry" : mode === "endless" ? "Endless Practice" : `${certModeLabel(mode)} Certification`;
 
   return (
     <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg }}>
@@ -1763,6 +2245,7 @@ function renderQuestion(q, shellProps, onAnswer) {
   if (q.kind === "mc" && q.type === "Crust & Size") return <CrustMCQuestion key={key} item={q.data} shellProps={shellProps} onAnswer={onAnswer} />;
   if (q.kind === "type" && q.type === "Crust & Size") return <CrustTypeQuestion key={key} item={q.data} shellProps={shellProps} onAnswer={onAnswer} />;
   if (q.kind === "mc" && q.type === "Portion Recall") return <PortionMCQuestion key={key} item={q.data} shellProps={shellProps} onAnswer={onAnswer} />;
+  if (q.kind === "mc" && q.type === "Policy") return <PolicyMCQuestion key={key} item={q.data} shellProps={shellProps} onAnswer={onAnswer} />;
   if (q.kind === "type" && q.type === "Portion Recall") return <PortionTypeQuestion key={key} item={q.data} shellProps={shellProps} onAnswer={onAnswer} />;
   if (q.kind === "build") return <BuildQuestion key={key} item={q.data} shellProps={shellProps} onAnswer={onAnswer} />;
   return null;
@@ -1779,6 +2262,7 @@ function App() {
   const [certQuestions, setCertQuestions] = useState(null);
   const [studyGuideViewed, setStudyGuideViewed] = useState(false);
   const [newHirePassed, setNewHirePassed] = useState(false);
+  const [onboardingPassed, setOnboardingPassed] = useState(false);
   const [enabledCategories, setEnabledCategories] = useState(DEFAULT_ENABLED_CATEGORIES);
   const [isDark, setIsDark] = useState(function () {
     try { return localStorage.getItem("storeup-dark") === "1"; } catch (e) { return false; }
@@ -1787,6 +2271,11 @@ function App() {
   const [pendingStartFn, setPendingStartFn] = useState(null);
   const [hasAccountSession, setHasAccountSession] = useState(false);
   const [resumeState, setResumeStateVal] = useState(() => loadResumeState());
+  const [onboardingStudyViewed, setOnboardingStudyViewed] = useState(false);
+  const [dominoStudyViewed, setDominoStudyViewed] = useState(false);
+  const [dominoVideoWatched, setDominoVideoWatched] = useState(false);
+  const [hubModule, setHubModule] = useState(null);
+  const [preTimerWarningScreen, setPreTimerWarningScreen] = useState("dashboard");
 
   applyTheme(isDark);
 
@@ -1857,6 +2346,7 @@ function App() {
   };
 
   const startNewHire = () => {
+    setHubModule(null);
     clearResumeState();
     setResumeStateVal(null);
     setMode("newhire");
@@ -1867,7 +2357,8 @@ function App() {
   };
 
   const startCSR = () => {
-    if (!newHirePassed) return;
+    if (!newHirePassed || !onboardingPassed) return;
+    setHubModule(null);
     clearResumeState();
     setResumeStateVal(null);
     setMode("csr");
@@ -1877,7 +2368,36 @@ function App() {
     setScreen("quiz");
   };
 
+  const startOnboarding = () => {
+    clearResumeState();
+    setResumeStateVal(null);
+    setMode("onboarding");
+    setQIndex(0);
+    setResults([]);
+    setCertQuestions(generateDay1OnboardingCert());
+    setScreen("quiz");
+  };
+
+  const startDomino = () => {
+    clearResumeState();
+    setResumeStateVal(null);
+    setMode("domino");
+    setQIndex(0);
+    setResults([]);
+    setCertQuestions(generateDominoCert());
+    setScreen("quiz");
+  };
+
+  const openOnboarding = () => { setHubModule("onboarding"); setScreen("modulehub"); };
+  const openCSRPath = () => setScreen("csrhub");
+  const openDomino = () => { setHubModule("domino"); setScreen("modulehub"); };
+  const finishOnboardingStudy = () => { setOnboardingStudyViewed(true); setScreen("modulehub"); };
+  const finishDominoStudy = () => { setDominoStudyViewed(true); setScreen("modulehub"); };
+  const openDominoVideo = () => setScreen("dominovideo");
+  const finishDominoVideo = () => { setDominoVideoWatched(true); setScreen("modulehub"); };
+
   const startEndless = () => {
+    setHubModule(null);
     setMode("endless");
     setQIndex(0);
     setResults([]);
@@ -1896,6 +2416,7 @@ function App() {
   const guardedStart = (fn) => () => {
     if (seenTimerWarning) { fn(); return; }
     setPendingStartFn(() => fn);
+    setPreTimerWarningScreen(screen);
     setScreen("timerwarning");
   };
   const acknowledgeTimerWarning = () => {
@@ -1919,7 +2440,7 @@ function App() {
     setResumeStateVal(null);
   };
 
-  const fixedQuestions = mode === "newhire" || mode === "csr" || mode === "retry" ? certQuestions : null;
+  const fixedQuestions = mode === "newhire" || mode === "csr" || mode === "onboarding" || mode === "domino" || mode === "retry" ? certQuestions : null;
   const currentQuestion = fixedQuestions ? fixedQuestions[qIndex] : endlessQueue[qIndex];
 
   const handleAnswer = (correct) => {
@@ -1928,13 +2449,14 @@ function App() {
     setResults(next);
     if (fixedQuestions) {
       const nextIndex = qIndex + 1;
+      const isResumableCert = mode === "newhire" || mode === "csr" || mode === "onboarding" || mode === "domino";
       if (nextIndex < fixedQuestions.length) {
         setQIndex(nextIndex);
-        if (mode === "newhire" || mode === "csr") {
+        if (isResumableCert) {
           saveResumeState(mode, fixedQuestions, nextIndex, next);
         }
       } else {
-        if (mode === "newhire" || mode === "csr") {
+        if (isResumableCert) {
           clearResumeState();
           setResumeStateVal(null);
         }
@@ -1984,8 +2506,9 @@ function App() {
               onToggleDark={() => setIsDark((d) => !d)}
               onStartStudy={startStudy}
               onStartNewHire={guardedStart(startNewHire)}
-              onStartCSR={guardedStart(startCSR)}
+              onOpenCSRPath={openCSRPath}
               onStartEndless={guardedStart(startEndless)}
+              onOpenDomino={openDomino}
               hasAccountSession={hasAccountSession}
               onViewAccount={() => setScreen("account")}
               resumeState={resumeState}
@@ -1994,8 +2517,36 @@ function App() {
             />
           )}
           {screen === "studyguide" && <StudyGuide onFinish={finishStudy} onExit={() => setScreen("dashboard")} />}
+          {screen === "csrhub" && (
+            <CSRPathHub
+              onboardingPassed={onboardingPassed}
+              onOpenOnboarding={openOnboarding}
+              onTest={guardedStart(startCSR)}
+              onBack={() => setScreen("dashboard")}
+            />
+          )}
+          {screen === "modulehub" && hubModule && (
+            <ModuleHub
+              module={hubModule}
+              videoWatched={dominoVideoWatched}
+              studyViewed={hubModule === "onboarding" ? onboardingStudyViewed : dominoStudyViewed}
+              onWatchVideo={openDominoVideo}
+              onStudy={() => setScreen(hubModule === "onboarding" ? "onboardingstudy" : "dominostudy")}
+              onTest={guardedStart(hubModule === "onboarding" ? startOnboarding : startDomino)}
+              onBack={() => { const dest = hubModule === "onboarding" ? "csrhub" : "dashboard"; setHubModule(null); setScreen(dest); }}
+            />
+          )}
+          {screen === "onboardingstudy" && (
+            <ReferenceStudyGuide eyebrow="Day 1 Onboarding" cards={ONBOARDING_REFERENCE_CARDS} onFinish={finishOnboardingStudy} onExit={() => setScreen("modulehub")} />
+          )}
+          {screen === "dominostudy" && (
+            <ReferenceStudyGuide eyebrow="The Domino" cards={DOMINO_REFERENCE_CARDS} onFinish={finishDominoStudy} onExit={() => setScreen("modulehub")} />
+          )}
+          {screen === "dominovideo" && (
+            <TrainingVideoScreen title="The Domino — Training Video" videoId={DOMINO_VIDEO_ID} onContinue={finishDominoVideo} onExit={() => setScreen("modulehub")} />
+          )}
           {screen === "timerwarning" && (
-            <TimerWarningScreen onContinue={acknowledgeTimerWarning} onBack={() => { setPendingStartFn(null); setScreen("dashboard"); }} />
+            <TimerWarningScreen onContinue={acknowledgeTimerWarning} onBack={() => { setPendingStartFn(null); setScreen(preTimerWarningScreen); }} />
           )}
           {screen === "account" && (
             <AccountScreen onBack={() => setScreen("dashboard")} />
@@ -2006,7 +2557,17 @@ function App() {
             handleAnswer
           )}
           {screen === "results" && user && (
-            <Results user={user} results={results} mode={mode} onRestart={() => setScreen("dashboard")} onPass={() => setNewHirePassed(true)} onRetryMissed={startRetry} />
+            <Results
+              user={user}
+              results={results}
+              mode={mode}
+              onRestart={() => setScreen(mode === "onboarding" ? "csrhub" : "dashboard")}
+              onPass={() => {
+                if (mode === "newhire") setNewHirePassed(true);
+                if (mode === "onboarding") setOnboardingPassed(true);
+              }}
+              onRetryMissed={startRetry}
+            />
           )}
         </React.Fragment>
       )}
