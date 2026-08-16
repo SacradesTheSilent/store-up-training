@@ -146,17 +146,24 @@ function loadSupabaseClient() {
   if (_supabaseLoadPromise) return _supabaseLoadPromise;
   _supabaseLoadPromise = new Promise((resolve) => {
     if (typeof window === "undefined") { resolve(null); return; }
-    if (window.supabase) {
-      _supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      resolve(_supabaseClient);
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js";
-    script.onload = () => {
-      _supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const finishInit = async () => {
+      _supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { detectSessionInUrl: true, persistSession: true, autoRefreshToken: true },
+      });
+      const code = new URLSearchParams(window.location.search).get("code");
+      if (code) {
+        try {
+          await _supabaseClient.auth.exchangeCodeForSession(window.location.href);
+          const cleanUrl = window.location.href.split("?")[0].split("#")[0];
+          window.history.replaceState({}, document.title, cleanUrl);
+        } catch (e) { /* not a valid/unused code — ignore */ }
+      }
       resolve(_supabaseClient);
     };
+    if (window.supabase) { finishInit(); return; }
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js";
+    script.onload = finishInit;
     script.onerror = () => resolve(null);
     document.head.appendChild(script);
   });
@@ -197,6 +204,24 @@ async function fetchOwnProfile() {
 }
 
 async function fetchOwnCertHistory() {
+  const client = await loadSupabaseClient();
+  const session = await getCurrentSession();
+  if (!client || !session) return [];
+  const { data, error } = await client.from("cert_attempts").select("*").eq("profile_id", session.user.id).order("taken_at", { ascending: false });
+  if (error) return [];
+  return data || [];
+}
+
+async function fetchStoreRoster(store) {
+  const client = await loadSupabaseClient();
+  const session = await getCurrentSession();
+  if (!client || !session) return [];
+  const { data, error } = await client.from("profiles").select("*").eq("store", store).order("created_at", { ascending: false });
+  if (error) return [];
+  return data || [];
+}
+
+async function fetchStoreCertHistory() {
   const client = await loadSupabaseClient();
   const session = await getCurrentSession();
   if (!client || !session) return [];
@@ -928,7 +953,7 @@ function TimerRing({ timeLeft, total }) {
   );
 }
 
-function Login({ onLogin, initialName, initialStore }) {
+function Login({ onLogin, initialName, initialStore, signInNoProfile, onDismissSignInNoProfile }) {
   const [name, setName] = useState(initialName || "");
   const [store, setStore] = useState(initialStore || "");
   const [error, setError] = useState("");
@@ -968,11 +993,23 @@ function Login({ onLogin, initialName, initialStore }) {
       </div>
 
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "32px 20px" }}>
+        <div style={{ width: "100%", maxWidth: 400 }}>
+          {signInNoProfile && (
+            <div style={{ background: C.redSoft, border: `2px solid ${C.red}`, borderRadius: C.cardRadius, padding: 16, marginBottom: 14 }}>
+              <p style={{ color: C.white, fontSize: 14, fontWeight: 700, margin: "0 0 4px" }}>No account found for that email</p>
+              <p style={{ color: C.textMuted, fontSize: 13, margin: "0 0 10px", lineHeight: 1.4 }}>
+                An account only gets created the first time you pass a certification while signed in — signing in on its own doesn't make one. Take a cert below, and you'll get the option to save your progress once you pass.
+              </p>
+              <button onClick={onDismissSignInNoProfile} style={{ background: "none", border: "none", color: C.red, fontWeight: 700, fontSize: 13, padding: 0, cursor: "pointer" }}>
+                Got it
+              </button>
+            </div>
+          )}
         <div style={{ width: "100%", maxWidth: 400, background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 26 }}>
           {!showSignIn ? (
             <React.Fragment>
               <p style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.5, marginBottom: 18 }}>
-                A quick self-paced quiz on our menu, portions, and prep — study at your own pace, then test yourself. Pass the CSR certification and we'll know you're serious.
+                A quick self-paced quiz on our menu, portions, and prep — study at your own pace, then test yourself. Pass the New Hire certification and we'll know you're serious.
               </p>
               <div style={{ marginBottom: 14 }}>
                 <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: C.textMuted, fontWeight: 800, display: "block", marginBottom: 6 }}>Your Name</label>
@@ -1038,6 +1075,7 @@ function Login({ onLogin, initialName, initialStore }) {
             </React.Fragment>
           )}
         </div>
+        </div>
       </div>
     </div>
   );
@@ -1076,7 +1114,7 @@ function ConfirmStore({ name, store, onConfirm, onBack }) {
   );
 }
 
-function Dashboard({ user, studyGuideViewed, newHirePassed, isDark, onToggleDark, onStartStudy, onStartNewHire, onOpenCSRPath, onStartEndless, onOpenDomino, hasAccountSession, onViewAccount, resumeState, onResume, onDiscardResume }) {
+function Dashboard({ user, studyGuideViewed, newHirePassed, isDark, onToggleDark, onStartStudy, onStartNewHire, onOpenCSRPath, onStartEndless, onOpenDomino, hasAccountSession, onViewAccount, isManager, onViewRoster, resumeState, onResume, onDiscardResume }) {
   return (
     <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg, fontFamily: C.bodyFont }}>
       <div style={{ maxWidth: 512, margin: "0 auto" }}>
@@ -1084,10 +1122,15 @@ function Dashboard({ user, studyGuideViewed, newHirePassed, isDark, onToggleDark
           <div>
             <p style={{ color: C.textMuted, fontSize: 14, textTransform: "uppercase", letterSpacing: "0.05em" }}>Welcome back</p>
             <h1 style={{ fontFamily: C.displayFont, fontSize: 36, fontWeight: 800, color: C.white, margin: "2px 0", textTransform: "uppercase", letterSpacing: "0.01em" }}>{user.name}</h1>
-            <p style={{ color: C.textFaint, fontSize: 14, marginBottom: hasAccountSession ? 8 : 32 }}>Store {user.store} · {user.role}</p>
+            <p style={{ color: C.textFaint, fontSize: 14, marginBottom: (hasAccountSession || isManager) ? 8 : 32 }}>Store {user.store} · {user.role}</p>
             {hasAccountSession && (
-              <button onClick={onViewAccount} style={{ background: "none", border: "none", color: C.blue, fontSize: 13, fontWeight: 700, padding: 0, cursor: "pointer", marginBottom: 32, display: "block" }}>
+              <button onClick={onViewAccount} style={{ background: "none", border: "none", color: C.blue, fontSize: 13, fontWeight: 700, padding: 0, cursor: "pointer", marginBottom: isManager ? 6 : 32, display: "block" }}>
                 My Account →
+              </button>
+            )}
+            {isManager && (
+              <button onClick={onViewRoster} style={{ background: "none", border: "none", color: C.purple, fontSize: 13, fontWeight: 700, padding: 0, cursor: "pointer", marginBottom: 32, display: "block" }}>
+                Store Roster →
               </button>
             )}
           </div>
@@ -2195,11 +2238,11 @@ function Results({ user, results, mode, onRestart, onPass, onRetryMissed }) {
           </div>
         )}
 
-        {mode === "csr" && pass && saveStatus === "no-session" && !magicLinkSent && (
+        {mode === "newhire" && pass && saveStatus === "no-session" && !magicLinkSent && (
           <div style={{ background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 18, marginBottom: 16 }}>
             <p style={{ fontFamily: C.displayFont, fontSize: 20, fontWeight: 700, textTransform: "uppercase", color: C.white, margin: "0 0 4px" }}>Save Your Progress</p>
             <p style={{ color: C.textMuted, fontSize: 13, marginBottom: 12, lineHeight: 1.4 }}>
-              You passed CSR — enter your email and we'll send a link to create an account, so this and future results are saved.
+              You passed New Hire — enter your email and we'll send a link to create an account, so this and future results are saved.
             </p>
             <input
               value={email}
@@ -2269,6 +2312,8 @@ function App() {
   const [seenTimerWarning, setSeenTimerWarning] = useState(() => hasSeenTimerWarning());
   const [pendingStartFn, setPendingStartFn] = useState(null);
   const [hasAccountSession, setHasAccountSession] = useState(false);
+  const [isManager, setIsManager] = useState(false);
+  const [signInNoProfile, setSignInNoProfile] = useState(false);
   const [resumeState, setResumeStateVal] = useState(() => loadResumeState());
   const [onboardingStudyViewed, setOnboardingStudyViewed] = useState(false);
   const [dominoStudyViewed, setDominoStudyViewed] = useState(false);
@@ -2299,6 +2344,7 @@ function App() {
           const profile = await fetchOwnProfile();
           if (!cancelled && profile) {
             setUser({ name: profile.name, store: profile.store, role: "New Hire" });
+            setIsManager(!!profile.is_manager);
             setScreen("dashboard");
           }
         }
@@ -2323,8 +2369,12 @@ function App() {
         if (cancelled) return;
         if (profile) {
           setUser({ name: profile.name, store: profile.store, role: "New Hire" });
+          setIsManager(!!profile.is_manager);
+          setScreen("account");
+        } else {
+          setSignInNoProfile(true);
+          setScreen("login");
         }
-        setScreen("account");
       }
     })();
     return () => { cancelled = true; };
@@ -2483,6 +2533,8 @@ function App() {
               onLogin={(u) => { setPendingLogin(u); setScreen("confirmstore"); }}
               initialName={pendingLogin && pendingLogin.name}
               initialStore={pendingLogin && pendingLogin.store}
+              signInNoProfile={signInNoProfile}
+              onDismissSignInNoProfile={() => setSignInNoProfile(false)}
             />
           )}
           {screen === "confirmstore" && pendingLogin && (
@@ -2510,6 +2562,8 @@ function App() {
               onOpenDomino={openDomino}
               hasAccountSession={hasAccountSession}
               onViewAccount={() => setScreen("account")}
+              isManager={isManager}
+              onViewRoster={() => setScreen("managerdashboard")}
               resumeState={resumeState}
               onResume={resumeCert}
               onDiscardResume={discardResume}
@@ -2550,6 +2604,9 @@ function App() {
           {screen === "account" && (
             <AccountScreen onBack={() => setScreen("dashboard")} />
           )}
+          {screen === "managerdashboard" && (
+            <ManagerDashboard onBack={() => setScreen("dashboard")} />
+          )}
           {screen === "quiz" && currentQuestion && renderQuestion(
             currentQuestion,
             { index: qIndex, total: fixedQuestions ? fixedQuestions.length : null, correctCount, wrongCount, onEndSession: mode === "endless" ? endSession : null, extraHeader: mode === "endless" ? <CategoryToggles enabled={enabledCategories} onToggle={toggleCategory} /> : null, revealAnswer: mode === "endless" || mode === "retry" },
@@ -2567,6 +2624,24 @@ function App() {
               }}
               onRetryMissed={startRetry}
             />
+          )}
+          {!(
+            screen === "login" ||
+            (screen === "confirmstore" && !!pendingLogin) ||
+            (screen === "dashboard" && !!user) ||
+            screen === "csrhub" ||
+            (screen === "modulehub" && !!hubModule) ||
+            screen === "onboardingstudy" ||
+            screen === "dominostudy" ||
+            screen === "dominovideo" ||
+            screen === "timerwarning" ||
+            screen === "account" ||
+            screen === "managerdashboard" ||
+            (screen === "quiz" && !!currentQuestion) ||
+            (screen === "results" && !!user) ||
+            screen === "studyguide"
+          ) && (
+            <BrokenStateScreen onGoToLogin={() => setScreen("login")} />
           )}
         </React.Fragment>
       )}
@@ -2591,6 +2666,23 @@ function MagicLinkConfirmation({ result, onContinue }) {
   );
 }
 
+function BrokenStateScreen({ onGoToLogin }) {
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 20px", background: C.bg }}>
+      <div style={{ width: "100%", maxWidth: 400, background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 30, textAlign: "center" }}>
+        <p style={{ fontSize: 34, margin: "0 0 10px" }}>⚠</p>
+        <h1 style={{ fontFamily: C.displayFont, fontSize: 22, fontWeight: 800, color: C.white, margin: "0 0 8px", textTransform: "uppercase" }}>Something Went Sideways</h1>
+        <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 20, lineHeight: 1.5 }}>
+          This screen couldn't load. Head back to the start and try again.
+        </p>
+        <button onClick={onGoToLogin} style={{ width: "100%", background: C.blue, color: "white", fontWeight: 700, fontSize: 15, padding: "13px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer" }}>
+          Back to Start
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function TimerWarningScreen({ onContinue, onBack }) {
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 20px", background: C.bg }}>
@@ -2606,6 +2698,103 @@ function TimerWarningScreen({ onContinue, onBack }) {
         <button onClick={onBack} style={{ width: "100%", background: "transparent", color: C.textMuted, fontWeight: 700, fontSize: 14, padding: "10px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer" }}>
           ← Not Yet
         </button>
+      </div>
+    </div>
+  );
+}
+
+const MANAGER_TEST_LABELS = ["New Hire", "Day 1 Onboarding", "CSR", "Domino"];
+const MANAGER_TEST_SHORT = { "New Hire": "NH", "Day 1 Onboarding": "D1", "CSR": "CSR", "Domino": "DOM" };
+
+function ManagerDashboard({ onBack }) {
+  const [loading, setLoading] = useState(true);
+  const [store, setStore] = useState(null);
+  const [roster, setRoster] = useState([]);
+  const [historyByPerson, setHistoryByPerson] = useState({});
+  const [expandedId, setExpandedId] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const own = await fetchOwnProfile();
+      if (!own) { setLoading(false); return; }
+      setStore(own.store);
+      const results = await Promise.all([fetchStoreRoster(own.store), fetchStoreCertHistory()]);
+      if (cancelled) return;
+      const people = results[0];
+      const allHistory = results[1];
+      setRoster(people);
+      const grouped = {};
+      allHistory.forEach((h) => {
+        if (!grouped[h.profile_id]) grouped[h.profile_id] = [];
+        grouped[h.profile_id].push(h);
+      });
+      setHistoryByPerson(grouped);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  return (
+    <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg }}>
+      <div style={{ maxWidth: 512, margin: "0 auto" }}>
+        <button onClick={onBack} style={{ background: "none", border: `1px solid ${C.panelBorder}`, color: C.textMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 10px", borderRadius: 6, cursor: "pointer", marginBottom: 20 }}>
+          ← Home
+        </button>
+        <h1 style={{ fontFamily: C.displayFont, fontSize: 32, fontWeight: 800, color: C.white, textTransform: "uppercase", margin: "0 0 4px" }}>Store Roster</h1>
+        <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 24 }}>
+          {store ? `Store ${store}` : ""}{roster.length > 0 ? ` · ${roster.length} ${roster.length === 1 ? "person" : "people"}` : ""}
+        </p>
+
+        {loading ? (
+          <p style={{ color: C.textMuted, fontSize: 14 }}>Loading roster…</p>
+        ) : roster.length === 0 ? (
+          <p style={{ color: C.textFaint, fontSize: 14 }}>No accounts yet at this store.</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {roster.map((person) => {
+              const attempts = historyByPerson[person.id] || [];
+              const isExpanded = expandedId === person.id;
+              return (
+                <div key={person.id} style={{ background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 16 }}>
+                  <div onClick={() => setExpandedId(isExpanded ? null : person.id)} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <p style={{ color: C.white, fontWeight: 700, margin: 0 }}>{person.name}</p>
+                      <span style={{ display: "inline-block", marginTop: 4, background: person.activated ? C.greenSoft : C.panelDim, border: `1px solid ${person.activated ? C.green : C.panelBorderDim}`, borderRadius: 999, padding: "2px 10px", fontSize: 11, fontWeight: 700, color: person.activated ? C.green : C.textMuted, textTransform: "uppercase" }}>
+                        {person.activated ? "Activated" : "Pending"}
+                      </span>
+                    </div>
+                    <span style={{ color: C.textFaint, fontSize: 22, display: "inline-block", transform: isExpanded ? "rotate(90deg)" : "none", transition: "transform 0.2s" }}>›</span>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+                    {MANAGER_TEST_LABELS.map((t) => {
+                      const passed = attempts.some((a) => a.exam_type === t && a.pass);
+                      return (
+                        <span key={t} style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: passed ? C.greenSoft : C.panelDim, color: passed ? C.green : C.textFaint, border: `1px solid ${passed ? C.green : C.panelBorderDim}` }}>
+                          {passed ? "✓" : "—"} {MANAGER_TEST_SHORT[t]}
+                        </span>
+                      );
+                    })}
+                  </div>
+
+                  {isExpanded && (
+                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.panelBorder}`, display: "flex", flexDirection: "column", gap: 6 }}>
+                      {attempts.length === 0 ? (
+                        <p style={{ color: C.textFaint, fontSize: 13, margin: 0 }}>No cert attempts yet.</p>
+                      ) : attempts.map((h) => (
+                        <div key={h.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                          <span style={{ color: C.textMuted }}>{h.exam_type} · {new Date(h.taken_at).toLocaleDateString()}</span>
+                          <span style={{ fontWeight: 700, color: h.pass ? C.green : C.red }}>{h.score}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
