@@ -221,6 +221,15 @@ async function fetchStoreRoster(store) {
   return data || [];
 }
 
+async function fetchAllProfiles() {
+  const client = await loadSupabaseClient();
+  const session = await getCurrentSession();
+  if (!client || !session) return [];
+  const { data, error } = await client.from("profiles").select("*").order("store", { ascending: true }).order("created_at", { ascending: false });
+  if (error) return [];
+  return data || [];
+}
+
 async function fetchStoreCertHistory() {
   const client = await loadSupabaseClient();
   const session = await getCurrentSession();
@@ -1114,7 +1123,8 @@ function ConfirmStore({ name, store, onConfirm, onBack }) {
   );
 }
 
-function Dashboard({ user, studyGuideViewed, newHirePassed, isDark, onToggleDark, onStartStudy, onStartNewHire, onOpenCSRPath, onStartEndless, onOpenDomino, hasAccountSession, onViewAccount, isManager, onViewRoster, resumeState, onResume, onDiscardResume }) {
+function Dashboard({ user, studyGuideViewed, newHirePassed, isDark, onToggleDark, onStartStudy, onStartNewHire, onOpenCSRPath, onStartEndless, onOpenDomino, hasAccountSession, onViewAccount, isManager, isAdmin, onViewRoster, resumeState, onResume, onDiscardResume }) {
+  const showRosterLink = isManager || isAdmin;
   return (
     <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg, fontFamily: C.bodyFont }}>
       <div style={{ maxWidth: 512, margin: "0 auto" }}>
@@ -1122,15 +1132,15 @@ function Dashboard({ user, studyGuideViewed, newHirePassed, isDark, onToggleDark
           <div>
             <p style={{ color: C.textMuted, fontSize: 14, textTransform: "uppercase", letterSpacing: "0.05em" }}>Welcome back</p>
             <h1 style={{ fontFamily: C.displayFont, fontSize: 36, fontWeight: 800, color: C.white, margin: "2px 0", textTransform: "uppercase", letterSpacing: "0.01em" }}>{user.name}</h1>
-            <p style={{ color: C.textFaint, fontSize: 14, marginBottom: (hasAccountSession || isManager) ? 8 : 32 }}>Store {user.store} · {user.role}</p>
+            <p style={{ color: C.textFaint, fontSize: 14, marginBottom: (hasAccountSession || showRosterLink) ? 8 : 32 }}>Store {user.store} · {user.role}</p>
             {hasAccountSession && (
-              <button onClick={onViewAccount} style={{ background: "none", border: "none", color: C.blue, fontSize: 13, fontWeight: 700, padding: 0, cursor: "pointer", marginBottom: isManager ? 6 : 32, display: "block" }}>
+              <button onClick={onViewAccount} style={{ background: "none", border: "none", color: C.blue, fontSize: 13, fontWeight: 700, padding: 0, cursor: "pointer", marginBottom: showRosterLink ? 6 : 32, display: "block" }}>
                 My Account →
               </button>
             )}
-            {isManager && (
+            {showRosterLink && (
               <button onClick={onViewRoster} style={{ background: "none", border: "none", color: C.purple, fontSize: 13, fontWeight: 700, padding: 0, cursor: "pointer", marginBottom: 32, display: "block" }}>
-                Store Roster →
+                {isAdmin ? "All Stores →" : "Store Roster →"}
               </button>
             )}
           </div>
@@ -2313,6 +2323,7 @@ function App() {
   const [pendingStartFn, setPendingStartFn] = useState(null);
   const [hasAccountSession, setHasAccountSession] = useState(false);
   const [isManager, setIsManager] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [signInNoProfile, setSignInNoProfile] = useState(false);
   const [resumeState, setResumeStateVal] = useState(() => loadResumeState());
   const [onboardingStudyViewed, setOnboardingStudyViewed] = useState(false);
@@ -2345,6 +2356,7 @@ function App() {
           if (!cancelled && profile) {
             setUser({ name: profile.name, store: profile.store, role: "New Hire" });
             setIsManager(!!profile.is_manager);
+            setIsAdmin(!!profile.is_admin);
             setScreen("dashboard");
           }
         }
@@ -2370,6 +2382,7 @@ function App() {
         if (profile) {
           setUser({ name: profile.name, store: profile.store, role: "New Hire" });
           setIsManager(!!profile.is_manager);
+          setIsAdmin(!!profile.is_admin);
           setScreen("account");
         } else {
           setSignInNoProfile(true);
@@ -2563,6 +2576,7 @@ function App() {
               hasAccountSession={hasAccountSession}
               onViewAccount={() => setScreen("account")}
               isManager={isManager}
+              isAdmin={isAdmin}
               onViewRoster={() => setScreen("managerdashboard")}
               resumeState={resumeState}
               onResume={resumeCert}
@@ -2605,7 +2619,7 @@ function App() {
             <AccountScreen onBack={() => setScreen("dashboard")} />
           )}
           {screen === "managerdashboard" && (
-            <ManagerDashboard onBack={() => setScreen("dashboard")} />
+            <ManagerDashboard onBack={() => setScreen("dashboard")} isAdmin={isAdmin} />
           )}
           {screen === "quiz" && currentQuestion && renderQuestion(
             currentQuestion,
@@ -2706,7 +2720,7 @@ function TimerWarningScreen({ onContinue, onBack }) {
 const MANAGER_TEST_LABELS = ["New Hire", "Day 1 Onboarding", "CSR", "Domino"];
 const MANAGER_TEST_SHORT = { "New Hire": "NH", "Day 1 Onboarding": "D1", "CSR": "CSR", "Domino": "DOM" };
 
-function ManagerDashboard({ onBack }) {
+function ManagerDashboard({ onBack, isAdmin }) {
   const [loading, setLoading] = useState(true);
   const [store, setStore] = useState(null);
   const [roster, setRoster] = useState([]);
@@ -2718,11 +2732,14 @@ function ManagerDashboard({ onBack }) {
     (async () => {
       const own = await fetchOwnProfile();
       if (!own) { setLoading(false); return; }
-      setStore(own.store);
-      const results = await Promise.all([fetchStoreRoster(own.store), fetchStoreCertHistory()]);
+      const results = await Promise.all([
+        isAdmin ? fetchAllProfiles() : fetchStoreRoster(own.store),
+        fetchStoreCertHistory(),
+      ]);
       if (cancelled) return;
       const people = results[0];
       const allHistory = results[1];
+      if (!isAdmin) setStore(own.store);
       setRoster(people);
       const grouped = {};
       allHistory.forEach((h) => {
@@ -2733,7 +2750,56 @@ function ManagerDashboard({ onBack }) {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [isAdmin]);
+
+  const renderPersonRow = (person) => {
+    const attempts = historyByPerson[person.id] || [];
+    const isExpanded = expandedId === person.id;
+    return (
+      <div key={person.id} style={{ background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 16 }}>
+        <div onClick={() => setExpandedId(isExpanded ? null : person.id)} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <p style={{ color: C.white, fontWeight: 700, margin: 0 }}>{person.name}</p>
+            <span style={{ display: "inline-block", marginTop: 4, background: person.activated ? C.greenSoft : C.panelDim, border: `1px solid ${person.activated ? C.green : C.panelBorderDim}`, borderRadius: 999, padding: "2px 10px", fontSize: 11, fontWeight: 700, color: person.activated ? C.green : C.textMuted, textTransform: "uppercase" }}>
+              {person.activated ? "Activated" : "Pending"}
+            </span>
+          </div>
+          <span style={{ color: C.textFaint, fontSize: 22, display: "inline-block", transform: isExpanded ? "rotate(90deg)" : "none", transition: "transform 0.2s" }}>›</span>
+        </div>
+
+        <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+          {MANAGER_TEST_LABELS.map((t) => {
+            const passed = attempts.some((a) => a.exam_type === t && a.pass);
+            return (
+              <span key={t} style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: passed ? C.greenSoft : C.panelDim, color: passed ? C.green : C.textFaint, border: `1px solid ${passed ? C.green : C.panelBorderDim}` }}>
+                {passed ? "✓" : "—"} {MANAGER_TEST_SHORT[t]}
+              </span>
+            );
+          })}
+        </div>
+
+        {isExpanded && (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.panelBorder}`, display: "flex", flexDirection: "column", gap: 6 }}>
+            {attempts.length === 0 ? (
+              <p style={{ color: C.textFaint, fontSize: 13, margin: 0 }}>No cert attempts yet.</p>
+            ) : attempts.map((h) => (
+              <div key={h.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                <span style={{ color: C.textMuted }}>{h.exam_type} · {new Date(h.taken_at).toLocaleDateString()}</span>
+                <span style={{ fontWeight: 700, color: h.pass ? C.green : C.red }}>{h.score}%</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const groupedByStore = isAdmin
+    ? roster.reduce((acc, p) => {
+        (acc[p.store] = acc[p.store] || []).push(p);
+        return acc;
+      }, {})
+    : null;
 
   return (
     <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg }}>
@@ -2741,58 +2807,29 @@ function ManagerDashboard({ onBack }) {
         <button onClick={onBack} style={{ background: "none", border: `1px solid ${C.panelBorder}`, color: C.textMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 10px", borderRadius: 6, cursor: "pointer", marginBottom: 20 }}>
           ← Home
         </button>
-        <h1 style={{ fontFamily: C.displayFont, fontSize: 32, fontWeight: 800, color: C.white, textTransform: "uppercase", margin: "0 0 4px" }}>Store Roster</h1>
+        <h1 style={{ fontFamily: C.displayFont, fontSize: 32, fontWeight: 800, color: C.white, textTransform: "uppercase", margin: "0 0 4px" }}>{isAdmin ? "All Stores" : "Store Roster"}</h1>
         <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 24 }}>
-          {store ? `Store ${store}` : ""}{roster.length > 0 ? ` · ${roster.length} ${roster.length === 1 ? "person" : "people"}` : ""}
+          {isAdmin ? "" : store ? `Store ${store}` : ""}{roster.length > 0 ? `${isAdmin ? "" : " · "}${roster.length} ${roster.length === 1 ? "person" : "people"}${isAdmin ? " across all stores" : ""}` : ""}
         </p>
 
         {loading ? (
           <p style={{ color: C.textMuted, fontSize: 14 }}>Loading roster…</p>
         ) : roster.length === 0 ? (
-          <p style={{ color: C.textFaint, fontSize: 14 }}>No accounts yet at this store.</p>
+          <p style={{ color: C.textFaint, fontSize: 14 }}>No accounts yet{isAdmin ? "" : " at this store"}.</p>
+        ) : isAdmin ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {Object.keys(groupedByStore).sort().map((storeKey) => (
+              <div key={storeKey}>
+                <p style={{ color: C.textMuted, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Store {storeKey}</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {groupedByStore[storeKey].map(renderPersonRow)}
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {roster.map((person) => {
-              const attempts = historyByPerson[person.id] || [];
-              const isExpanded = expandedId === person.id;
-              return (
-                <div key={person.id} style={{ background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 16 }}>
-                  <div onClick={() => setExpandedId(isExpanded ? null : person.id)} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                      <p style={{ color: C.white, fontWeight: 700, margin: 0 }}>{person.name}</p>
-                      <span style={{ display: "inline-block", marginTop: 4, background: person.activated ? C.greenSoft : C.panelDim, border: `1px solid ${person.activated ? C.green : C.panelBorderDim}`, borderRadius: 999, padding: "2px 10px", fontSize: 11, fontWeight: 700, color: person.activated ? C.green : C.textMuted, textTransform: "uppercase" }}>
-                        {person.activated ? "Activated" : "Pending"}
-                      </span>
-                    </div>
-                    <span style={{ color: C.textFaint, fontSize: 22, display: "inline-block", transform: isExpanded ? "rotate(90deg)" : "none", transition: "transform 0.2s" }}>›</span>
-                  </div>
-
-                  <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
-                    {MANAGER_TEST_LABELS.map((t) => {
-                      const passed = attempts.some((a) => a.exam_type === t && a.pass);
-                      return (
-                        <span key={t} style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: passed ? C.greenSoft : C.panelDim, color: passed ? C.green : C.textFaint, border: `1px solid ${passed ? C.green : C.panelBorderDim}` }}>
-                          {passed ? "✓" : "—"} {MANAGER_TEST_SHORT[t]}
-                        </span>
-                      );
-                    })}
-                  </div>
-
-                  {isExpanded && (
-                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.panelBorder}`, display: "flex", flexDirection: "column", gap: 6 }}>
-                      {attempts.length === 0 ? (
-                        <p style={{ color: C.textFaint, fontSize: 13, margin: 0 }}>No cert attempts yet.</p>
-                      ) : attempts.map((h) => (
-                        <div key={h.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                          <span style={{ color: C.textMuted }}>{h.exam_type} · {new Date(h.taken_at).toLocaleDateString()}</span>
-                          <span style={{ fontWeight: 700, color: h.pass ? C.green : C.red }}>{h.score}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {roster.map(renderPersonRow)}
           </div>
         )}
       </div>
