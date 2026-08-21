@@ -2248,11 +2248,11 @@ function Results({ user, results, mode, onRestart, onPass, onRetryMissed }) {
           </div>
         )}
 
-        {mode === "newhire" && pass && saveStatus === "no-session" && !magicLinkSent && (
+        {(mode === "newhire" || mode === "domino") && pass && saveStatus === "no-session" && !magicLinkSent && (
           <div style={{ background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 18, marginBottom: 16 }}>
             <p style={{ fontFamily: C.displayFont, fontSize: 20, fontWeight: 700, textTransform: "uppercase", color: C.white, margin: "0 0 4px" }}>Save Your Progress</p>
             <p style={{ color: C.textMuted, fontSize: 13, marginBottom: 12, lineHeight: 1.4 }}>
-              You passed New Hire — enter your email and we'll send a link to create an account, so this and future results are saved.
+              You passed {certModeLabel(mode)} — enter your email and we'll send a link to create an account, so this and future results are saved.
             </p>
             <input
               value={email}
