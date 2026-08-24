@@ -1729,13 +1729,13 @@ function CodeTypeQuestion({ item, shellProps, onAnswer }) {
   }, [locked, item.answer, onAnswer, revealAnswer]);
 
   const handleExpire = useCallback(() => submit(value), [submit, value]);
-  const timeLeft = useCountdown(15, !locked, handleExpire);
+  const timeLeft = useCountdown(20, !locked, handleExpire);
 
   return (
     <QuestionShell {...shellProps}>
       <FeedbackFlash status={flash} correctAnswer={revealAnswer ? item.answer : null} />
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
-        <TimerRing timeLeft={timeLeft} total={15} />
+        <TimerRing timeLeft={timeLeft} total={20} />
         <div>
           <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Type the code for</p>
           <p style={{ fontSize: 26, fontWeight: 900, color: C.white, margin: 0 }}>{item.name}</p>
@@ -1770,7 +1770,7 @@ function CodeMCQuestion({ item, shellProps, onAnswer }) {
     setTimeout(() => onAnswer(false), revealAnswer ? 1800 : 700);
   }, [locked, onAnswer, revealAnswer]);
 
-  const timeLeft = useCountdown(15, !locked, handleExpire);
+  const timeLeft = useCountdown(20, !locked, handleExpire);
 
   const choose = (choice) => {
     if (locked) return;
@@ -1784,7 +1784,7 @@ function CodeMCQuestion({ item, shellProps, onAnswer }) {
     <QuestionShell {...shellProps}>
       <FeedbackFlash status={flash} correctAnswer={revealAnswer ? item.answer : null} />
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
-        <TimerRing timeLeft={timeLeft} total={15} />
+        <TimerRing timeLeft={timeLeft} total={20} />
         <div>
           <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Topping code</p>
           <p style={{ fontSize: 40, fontWeight: 900, color: C.white, letterSpacing: "0.05em", margin: 0 }}>{item.code}</p>
@@ -1814,7 +1814,7 @@ function CrustMCQuestion({ item, shellProps, onAnswer }) {
     setTimeout(() => onAnswer(false), revealAnswer ? 1800 : 700);
   }, [locked, onAnswer, revealAnswer]);
 
-  const timeLeft = useCountdown(15, !locked, handleExpire);
+  const timeLeft = useCountdown(20, !locked, handleExpire);
 
   const choose = (choice) => {
     if (locked) return;
@@ -1828,7 +1828,7 @@ function CrustMCQuestion({ item, shellProps, onAnswer }) {
     <QuestionShell {...shellProps}>
       <FeedbackFlash status={flash} correctAnswer={revealAnswer ? item.answer : null} />
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
-        <TimerRing timeLeft={timeLeft} total={15} />
+        <TimerRing timeLeft={timeLeft} total={20} />
         <div>
           <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Crust</p>
           <p style={{ fontSize: 26, fontWeight: 900, color: C.white, margin: 0 }}>{item.crust}</p>
@@ -1866,13 +1866,13 @@ function CrustTypeQuestion({ item, shellProps, onAnswer }) {
   }, [locked, item.sizes, onAnswer, revealAnswer]);
 
   const handleExpire = useCallback(() => submit(value), [submit, value]);
-  const timeLeft = useCountdown(15, !locked, handleExpire);
+  const timeLeft = useCountdown(20, !locked, handleExpire);
 
   return (
     <QuestionShell {...shellProps}>
       <FeedbackFlash status={flash} correctAnswer={revealAnswer ? item.sizes.join(", ") : null} />
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
-        <TimerRing timeLeft={timeLeft} total={15} />
+        <TimerRing timeLeft={timeLeft} total={20} />
         <div>
           <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Type the sizes for</p>
           <p style={{ fontSize: 26, fontWeight: 900, color: C.white, margin: 0 }}>{item.crust}</p>
@@ -1913,13 +1913,13 @@ function CodeNameTypeQuestion({ item, shellProps, onAnswer }) {
   }, [locked, item.answer, onAnswer, revealAnswer]);
 
   const handleExpire = useCallback(() => submit(value), [submit, value]);
-  const timeLeft = useCountdown(15, !locked, handleExpire);
+  const timeLeft = useCountdown(20, !locked, handleExpire);
 
   return (
     <QuestionShell {...shellProps}>
       <FeedbackFlash status={flash} correctAnswer={revealAnswer ? item.answer : null} />
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
-        <TimerRing timeLeft={timeLeft} total={15} />
+        <TimerRing timeLeft={timeLeft} total={20} />
         <div>
           <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Topping code</p>
           <p style={{ fontSize: 40, fontWeight: 900, color: C.white, letterSpacing: "0.05em", margin: 0 }}>{item.code}</p>
@@ -1995,7 +1995,7 @@ function PortionMCQuestion({ item, shellProps, onAnswer }) {
     setTimeout(() => onAnswer(false), revealAnswer ? 1800 : 700);
   }, [locked, onAnswer, revealAnswer]);
 
-  const timeLeft = useCountdown(15, !locked, handleExpire);
+  const timeLeft = useCountdown(20, !locked, handleExpire);
 
   const choose = (choice) => {
     if (locked) return;
@@ -2009,7 +2009,7 @@ function PortionMCQuestion({ item, shellProps, onAnswer }) {
     <QuestionShell {...shellProps}>
       <FeedbackFlash status={flash} correctAnswer={revealAnswer ? `${item.answer} ${item.unit}` : null} />
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 8 }}>
-        <TimerRing timeLeft={timeLeft} total={15} />
+        <TimerRing timeLeft={timeLeft} total={20} />
         <div>
           <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Portion check</p>
           <p style={{ fontSize: 26, fontWeight: 900, color: C.white, margin: 0 }}>{item.ingredient}</p>
@@ -2047,13 +2047,13 @@ function PortionTypeQuestion({ item, shellProps, onAnswer }) {
   }, [locked, item.answer, onAnswer, revealAnswer]);
 
   const handleExpire = useCallback(() => submit(value), [submit, value]);
-  const timeLeft = useCountdown(15, !locked, handleExpire);
+  const timeLeft = useCountdown(20, !locked, handleExpire);
 
   return (
     <QuestionShell {...shellProps}>
       <FeedbackFlash status={flash} correctAnswer={revealAnswer ? `${item.answer} ${item.unit}` : null} />
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 8 }}>
-        <TimerRing timeLeft={timeLeft} total={15} />
+        <TimerRing timeLeft={timeLeft} total={20} />
         <div>
           <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Type the portion ({item.unit})</p>
           <p style={{ fontSize: 22, fontWeight: 900, color: C.white, margin: 0 }}>{item.ingredient}</p>
@@ -2094,10 +2094,6 @@ function BuildQuestion({ item, shellProps, onAnswer }) {
     setTimeout(() => onAnswer(correct), !correct && revealAnswer ? 2600 : 800);
   }, [locked, item.correct, onAnswer, revealAnswer]);
 
-  const handleExpire = useCallback(() => evaluate(selected), [evaluate, selected]);
-  const timerSeconds = Math.max(20, Math.round(item.correct.length * 2.5));
-  const timeLeft = useCountdown(timerSeconds, !locked, handleExpire);
-
   const toggle = (label) => {
     if (locked) return;
     setSelected((s) => (s.includes(label) ? s.filter((x) => x !== label) : [...s, label]));
@@ -2106,13 +2102,10 @@ function BuildQuestion({ item, shellProps, onAnswer }) {
   return (
     <QuestionShell {...shellProps}>
       <FeedbackFlash status={flash} correctAnswer={revealAnswer ? item.correct.join(", ") : null} />
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
-        <TimerRing timeLeft={timeLeft} total={timerSeconds} />
-        <div>
-          <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Build the order</p>
-          <p style={{ color: C.white, fontWeight: 900, fontSize: 20, lineHeight: 1.2, margin: 0 }}>{item.name}</p>
-          <p style={{ color: C.textFaint, fontSize: 12, margin: 0 }}>{item.subtitle}</p>
-        </div>
+      <div style={{ marginBottom: 12 }}>
+        <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>Build the order — no timer, take your time</p>
+        <p style={{ color: C.white, fontWeight: 900, fontSize: 20, lineHeight: 1.2, margin: 0 }}>{item.name}</p>
+        <p style={{ color: C.textFaint, fontSize: 12, margin: 0 }}>{item.subtitle}</p>
       </div>
 
       <div style={{ position: "relative", width: 176, height: 176, margin: "0 auto 20px" }}>
@@ -2704,7 +2697,7 @@ function TimerWarningScreen({ onContinue, onBack }) {
         <p style={{ fontSize: 40, margin: "0 0 12px" }}>⏱</p>
         <h1 style={{ fontFamily: C.displayFont, fontSize: 26, fontWeight: 800, color: C.white, margin: "0 0 10px", textTransform: "uppercase" }}>Heads Up — It's Timed</h1>
         <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 20, lineHeight: 1.6 }}>
-          Most questions give you 10–15 seconds to answer, and specialty builds get a bit more. Don't worry about missing a few — that's normal. Answer as fast as you can and keep moving.
+          Most questions give you 20 seconds to answer. Specialty build questions aren't timed at all — take your time on those. Don't worry about missing a few — that's normal. Just keep moving.
         </p>
         <button onClick={onContinue} style={{ width: "100%", background: C.blue, color: "white", fontWeight: 800, fontSize: 15, padding: "13px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer", marginBottom: 10 }}>
           Got It — Let's Go
