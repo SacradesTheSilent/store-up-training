@@ -98,6 +98,7 @@ const TOPPING_TILES = [
   { code: "X", label: "Pizza Sauce", color: "#C8102E" },
   { code: "XF", label: "Alfredo Sauce", color: "#E8D9A0" },
   { code: "BBQ", label: "BBQ Sauce", color: "#6B3A1F" },
+  { code: null, codeTBD: true, label: "Honey BBQ Sauce", color: "#8A4B1C" },
   { code: "RANCH", label: "Ranch", color: "#EDE8D9" },
   { code: "GPSAUCE", label: "Garlic Parm Sauce", color: "#D9CBA3" },
   { code: "C", label: "Pizza Cheese", color: "#F0B429" },
@@ -129,141 +130,18 @@ const CODES = TOPPING_TILES.filter((t) => t.code);
 const byLabel = (label) => TOPPING_TILES.find((t) => t.label === label);
 
 // ---------------------------------------------------------------------------
-// SUPABASE — accounts + saved cert history. Only created when someone passes
-// CSR; before that everyone stays anonymous, same as always.
+// LOCAL STORAGE — no accounts. Progress, resume state and the timer warning
+// are remembered per device/browser only.
 // ---------------------------------------------------------------------------
-const SUPABASE_URL = "https://jucwofkcbrxlbwcvebiw.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_VkWGuvpxOgW1ruApnDb93Q_IS3vLWfb";
-const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/submit-cert-result`;
-const PENDING_INTENT_KEY = "storeup-pending-intent";
+const PROGRESS_KEY = "storeup-progress";
+function loadProgress() {
+  try { const raw = localStorage.getItem(PROGRESS_KEY); return raw ? JSON.parse(raw) : {}; } catch (e) { return {}; }
+}
+function saveProgress(p) {
+  try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(p)); } catch (e) { /* ignore */ }
+}
 const TIMER_WARNING_SEEN_KEY = "storeup-seen-timer-warning";
 const RESUME_KEY = "storeup-resume";
-
-let _supabaseClient = null;
-let _supabaseLoadPromise = null;
-function loadSupabaseClient() {
-  if (_supabaseClient) return Promise.resolve(_supabaseClient);
-  if (_supabaseLoadPromise) return _supabaseLoadPromise;
-  _supabaseLoadPromise = new Promise((resolve) => {
-    if (typeof window === "undefined") { resolve(null); return; }
-    const finishInit = async () => {
-      _supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        auth: { detectSessionInUrl: true, persistSession: true, autoRefreshToken: true },
-      });
-      const code = new URLSearchParams(window.location.search).get("code");
-      if (code) {
-        try {
-          await _supabaseClient.auth.exchangeCodeForSession(window.location.href);
-          const cleanUrl = window.location.href.split("?")[0].split("#")[0];
-          window.history.replaceState({}, document.title, cleanUrl);
-        } catch (e) { /* not a valid/unused code — ignore */ }
-      }
-      resolve(_supabaseClient);
-    };
-    if (window.supabase) { finishInit(); return; }
-    const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js";
-    script.onload = finishInit;
-    script.onerror = () => resolve(null);
-    document.head.appendChild(script);
-  });
-  return _supabaseLoadPromise;
-}
-
-async function getCurrentSession() {
-  const client = await loadSupabaseClient();
-  if (!client) return null;
-  const { data } = await client.auth.getSession();
-  return data ? data.session : null;
-}
-
-async function saveCertResult({ name, store, examType, score, pass, correct, total }) {
-  const session = await getCurrentSession();
-  if (!session) return { error: "No active session" };
-  try {
-    const res = await fetch(EDGE_FUNCTION_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ name, store, examType, score, pass, correct, total }),
-    });
-    const json = await res.json();
-    if (!res.ok) return { error: json.error || "Failed to save" };
-    return { success: true };
-  } catch (e) {
-    return { error: String(e) };
-  }
-}
-
-async function fetchOwnProfile() {
-  const client = await loadSupabaseClient();
-  const session = await getCurrentSession();
-  if (!client || !session) return null;
-  const { data, error } = await client.from("profiles").select("*").eq("id", session.user.id).single();
-  if (error) return null;
-  return data;
-}
-
-async function fetchOwnCertHistory() {
-  const client = await loadSupabaseClient();
-  const session = await getCurrentSession();
-  if (!client || !session) return [];
-  const { data, error } = await client.from("cert_attempts").select("*").eq("profile_id", session.user.id).order("taken_at", { ascending: false });
-  if (error) return [];
-  return data || [];
-}
-
-async function fetchStoreRoster(store) {
-  const client = await loadSupabaseClient();
-  const session = await getCurrentSession();
-  if (!client || !session) return [];
-  const { data, error } = await client.from("profiles").select("*").eq("store", store).order("created_at", { ascending: false });
-  if (error) return [];
-  return data || [];
-}
-
-async function fetchAllProfiles() {
-  const client = await loadSupabaseClient();
-  const session = await getCurrentSession();
-  if (!client || !session) return [];
-  const { data, error } = await client.from("profiles").select("*").order("store", { ascending: true }).order("created_at", { ascending: false });
-  if (error) return [];
-  return data || [];
-}
-
-async function fetchStoreCertHistory() {
-  const client = await loadSupabaseClient();
-  const session = await getCurrentSession();
-  if (!client || !session) return [];
-  const { data, error } = await client.from("cert_attempts").select("*").order("taken_at", { ascending: false });
-  if (error) return [];
-  return data || [];
-}
-
-function stashIntent(intent) {
-  try { localStorage.setItem(PENDING_INTENT_KEY, JSON.stringify(intent)); } catch (e) { /* ignore */ }
-}
-function readStashedIntent() {
-  try {
-    const raw = localStorage.getItem(PENDING_INTENT_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch (e) { return null; }
-}
-function clearStashedIntent() {
-  try { localStorage.removeItem(PENDING_INTENT_KEY); } catch (e) { /* ignore */ }
-}
-
-async function sendMagicLink(email, intent) {
-  const client = await loadSupabaseClient();
-  if (!client) return { error: "Couldn't load account system" };
-  stashIntent(intent);
-  const redirectTo = window.location.href.split("#")[0].split("?")[0];
-  const { error } = await client.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
-  if (error) {
-    clearStashedIntent();
-    return { error: error.message };
-  }
-  return { success: true };
-}
 
 function hasSeenTimerWarning() {
   try { return localStorage.getItem(TIMER_WARNING_SEEN_KEY) === "1"; } catch (e) { return false; }
@@ -335,6 +213,7 @@ const SPECIALTY_BUILDS = [
   { name: "WISCONSIN 6 CHEESE", subtitle: "4+ Top Specialty Pizza", correct: ["Pizza Sauce", "Pizza Cheese", "Feta", "Shredded Provolone", "Cheddar Cheese Blend", "Parm/Asiago", "Oregano"] },
   { name: "HONOLULU HAWAIIAN", subtitle: "4+ Top Specialty Pizza", correct: ["Pizza Sauce", "Pizza Cheese", "Ham", "Bacon", "Pineapple", "Green Pepper", "Shredded Provolone"] },
   { name: "THE PEOPLE'S PIZZA — DELUXE", subtitle: "Specialty Pizza", correct: ["Pizza Sauce", "Pizza Cheese", "Pepperoni", "Onion", "Green Pepper", "Mushroom", "Sausage", "Shredded Provolone"] },
+  { name: "SWEET HEAT SMOKEHOUSE", subtitle: "4+ Top Specialty Pizza", correct: ["Honey BBQ Sauce", "Pizza Cheese", "Onion", "Pineapple", "Jalapeño", "Sausage", "Bacon", "Shredded Provolone"] },
   { name: "EXTRAVAGANZZA", subtitle: "4+ Top Specialty Pizza", correct: ["Pizza Sauce", "Pizza Cheese", "Pepperoni", "Ham", "Onion", "Green Pepper", "Mushroom", "Black Olive", "Sausage", "Beef", "Shredded Provolone"] },
 ];
 
@@ -454,15 +333,6 @@ function crustWeight(crust) {
 }
 const CRUST_WEIGHTED_PAIRS = CRUST_SIZES.map((row) => [row, crustWeight(row.crust)]);
 
-const STUDY_CARDS = [
-  { kind: "crustSizes", data: { rows: CRUST_SIZES } },
-  ...STUDY_CODE_CATEGORIES.map((c) => ({ kind: "codes", data: c })),
-  ...SPECIALTY_BUILDS.map((b) => ({ kind: "build", data: b })),
-  ...STUDY_PORTION_GROUPS.map((g) => ({ kind: "portionTable", data: g })),
-  { kind: "portionTable", data: STUDY_FLAT_CHEESE },
-  { kind: "panBuild", data: PAN_BUILD },
-  { kind: "portionTable", data: STUDY_NY_STYLE },
-];
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
@@ -581,10 +451,11 @@ const CATEGORY_META = [
   { key: "cheese", label: "Cheese", color: "#F2A93B" },
   { key: "crust", label: "Crust & Size", color: "#1F7A3D" },
   { key: "builds", label: "Builds", color: "#6C4FC4" },
+  { key: "newitems", label: "New Items", color: "#C8751A" },
 ];
-const CATEGORY_GENERATORS = { codes: genCodeMC, portions: genPortionMC, cheese: genFlatCheese, crust: genCrustMC, builds: genBuild };
-const CATEGORY_BASE_WEIGHTS = { codes: 40, portions: 30, cheese: 12, crust: 10, builds: 8 };
-const DEFAULT_ENABLED_CATEGORIES = { codes: true, portions: true, cheese: true, crust: true, builds: true };
+const CATEGORY_GENERATORS = { codes: genCodeMC, portions: genPortionMC, cheese: genFlatCheese, crust: genCrustMC, builds: genBuild, newitems: genNewItemMC };
+const CATEGORY_BASE_WEIGHTS = { codes: 40, portions: 30, cheese: 12, crust: 10, builds: 8, newitems: 10 };
+const DEFAULT_ENABLED_CATEGORIES = { codes: true, portions: true, cheese: true, crust: true, builds: true, newitems: true };
 
 function generateRandomQuestion(enabledCategories) {
   const enabled = enabledCategories || DEFAULT_ENABLED_CATEGORIES;
@@ -598,6 +469,7 @@ function questionIdentity(q) {
   if (q.type === "Portion Recall") return `${q.type}|${q.data.ingredient}|${q.data.context}`;
   if (q.type === "Crust & Size") return `${q.type}|${q.data.crust}`;
   if (q.type === "Specialty Build") return `${q.type}|${q.data.name}`;
+  if (q.type === "Policy") return `${q.type}|${q.data.prompt}`;
   return `${q.type}|${q.data.code || q.data.name}`;
 }
 function generateNonRepeatingQuestion(prevQuestion, enabledCategories) {
@@ -683,10 +555,98 @@ function makeFlatCheeseTypeQFromCombo(c) {
   return { type: "Portion Recall", kind: "type", data: { ingredient: c.ingredient, unit: c.unit, context: `${c.size}" Pizza — All Pizzas`, answer: String(c.answer) } };
 }
 
+// ---------------------------------------------------------------------------
+// SWEET HEAT SMOKEHOUSE — new specialty (launch). Portions from the make-sheet,
+// ounces unless noted. Gets its own launch card on the dashboard for the first
+// week (SWEET_HEAT_LAUNCH_END), then lives in the general training only.
+// ---------------------------------------------------------------------------
+const SWEET_HEAT_LAUNCH_END = new Date("2026-11-23T23:59:59");
+function sweetHeatLaunchActive() { return new Date() <= SWEET_HEAT_LAUNCH_END; }
+
+const SWEET_HEAT_SIZES = [10, 12, 14, 16];
+const SWEET_HEAT_TABLE_ROWS = [
+  { names: ["Honey BBQ Sauce", "Pizza Cheese"], values: { 10: 1.5, 12: 2.5, 14: 3.5, 16: 4.5 } },
+  { names: ["Onion"], values: { 10: 0.5, 12: 1.0, 14: 1.5, 16: 2.0 } },
+  { names: ["Pineapple"], values: { 10: 1.0, 12: 1.5, 14: 2.0, 16: 2.5 } },
+  { names: ["Jalapeño"], values: { 10: 0.5, 12: 1.0, 14: 1.5, 16: 2.0 } },
+  { names: ["Sausage", "Bacon"], values: { 10: 1.0, 12: 1.5, 14: 2.0, 16: 2.5 } },
+  { names: ["Shredded Provolone"], values: { 10: 2.5, 12: 3.5, 14: 4.7, 16: 6.0 } },
+];
+const SWEET_HEAT_PAN_ROWS = [
+  { names: ["Shredded Provolone"], value: 4.0 },
+  { names: ["Honey BBQ Sauce", "Pizza Cheese"], value: 3.0 },
+  { names: ["Onion"], value: 1.0 },
+  { names: ["Pineapple"], value: 1.5 },
+  { names: ["Jalapeño"], value: 1.0 },
+  { names: ["Sausage", "Bacon"], value: 1.5 },
+];
+const SWEET_HEAT_STUDY_TABLE = {
+  title: "Sweet Heat Smokehouse",
+  note: "Portions in ounces, 4+ topping specialty. Includes the 10\" size. Honey BBQ and Pizza Cheese share one amount; so do Sausage and Bacon.",
+  headers: ['10"', '12"', '14"', '16"'],
+  rows: SWEET_HEAT_TABLE_ROWS.map((r) => ({ tier: r.names.join(" / "), values: SWEET_HEAT_SIZES.map((s) => r.values[s]) })),
+};
+const SWEET_HEAT_STUDY_PAN = {
+  eyebrow: "Sweet Heat Smokehouse — Pan",
+  title: "Sweet Heat Pan (12\")",
+  note: "Pan is Medium (12\") only. Honey BBQ and Pizza Cheese share one amount; so do Sausage and Bacon.",
+  items: SWEET_HEAT_PAN_ROWS.map((r) => ({ name: r.names.join(" / "), unit: "oz", value: r.value })),
+};
+const SWEET_HEAT_STUDY_CARDS = [
+  { kind: "build", data: SPECIALTY_BUILDS.find((b) => b.name === "SWEET HEAT SMOKEHOUSE") },
+  { kind: "portionTable", data: SWEET_HEAT_STUDY_TABLE },
+  { kind: "panBuild", data: SWEET_HEAT_STUDY_PAN },
+];
+
+function genSweetHeatMC() {
+  if (Math.random() < 0.2) {
+    const row = pick(SWEET_HEAT_PAN_ROWS);
+    const answer = row.value;
+    const pool = SWEET_HEAT_PAN_ROWS.filter((r) => r !== row).map((r) => r.value);
+    return { type: "Portion Recall", kind: "mc", data: { ingredient: `${pick(row.names)} (Sweet Heat)`, unit: "oz", context: "Sweet Heat Smokehouse — 12\" Pan", answer: String(answer), choices: uniqueChoices(answer, shuffle(pool)) } };
+  }
+  const row = pick(SWEET_HEAT_TABLE_ROWS);
+  const size = pick(SWEET_HEAT_SIZES);
+  const answer = row.values[size];
+  const others = SWEET_HEAT_SIZES.filter((s) => s !== size).map((s) => row.values[s]);
+  const cross = pick(SWEET_HEAT_TABLE_ROWS.filter((r) => r !== row)).values[size];
+  return { type: "Portion Recall", kind: "mc", data: { ingredient: `${pick(row.names)} (Sweet Heat)`, unit: "oz", context: `${size}" Sweet Heat Smokehouse`, answer: String(answer), choices: uniqueChoices(answer, [...others, cross]) } };
+}
+
+function generateSweetHeatCert() {
+  const buildQ = { type: "Specialty Build", kind: "build", data: SPECIALTY_BUILDS.find((b) => b.name === "SWEET HEAT SMOKEHOUSE") };
+  const seen = new Set();
+  const portionQs = [];
+  let guard = 0;
+  while (portionQs.length < 7 && guard < 200) {
+    guard++;
+    const q = genSweetHeatMC();
+    const id = q.data.context + "|" + q.data.answer;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    portionQs.push(q);
+  }
+  const codeTiles = ["Jalapeño", "Pineapple", "Bacon"].map((l) => byLabel(l));
+  const codeQs = sampleWithoutReplacement(codeTiles, 2).map(makeCodeTypeQ);
+  return shuffle([buildQ, ...portionQs, ...codeQs]);
+}
+const SWEET_HEAT_QUESTION_COUNT = 1 + 7 + 2;
+
+// New products (Domino + Sweet Heat) in one pool for Endless / certs.
+function genDominoPolicyQ() { return { type: "Policy", kind: "mc", data: pick(DOMINO_POLICY_QUESTIONS) }; }
+function genDominoPortionQ() { return { type: "Portion Recall", kind: "mc", data: pick(DOMINO_PORTION_QUESTIONS) }; }
+function genNewItemMC() {
+  const r = Math.random();
+  if (r < 0.35) return genDominoPolicyQ();
+  if (r < 0.6) return genDominoPortionQ();
+  return genSweetHeatMC();
+}
+
 function generateNewHireCert() {
   const crustQs = weightedSampleWithoutReplacement(CRUST_WEIGHTED_PAIRS, 4).map(makeCrustTypeQ);
   const buildQs = sampleWithoutReplacement(SPECIALTY_BUILDS, 5).map((b) => ({ type: "Specialty Build", kind: "build", data: b }));
-  return shuffle([...crustQs, ...buildQs]);
+  const dominoQs = sampleWithoutReplacement(DOMINO_POLICY_QUESTIONS, 2).map((q) => ({ type: "Policy", kind: "mc", data: q }));
+  return shuffle([...crustQs, ...buildQs, ...dominoQs]);
 }
 
 const TOPPING_CODE_TILES = CODES.filter((t) => !SAUCE_TILES.includes(t));
@@ -698,11 +658,16 @@ function generateCSRCert() {
   const flatCheeseQs = weightedSampleWithoutReplacement(weightedFlatCheeseCombos(), 2).map(makeFlatCheeseTypeQFromCombo);
   const crustQs = weightedSampleWithoutReplacement(CRUST_WEIGHTED_PAIRS, 2).map(makeCrustTypeQ);
   const buildQs = sampleWithoutReplacement(SPECIALTY_BUILDS, 3).map((b) => ({ type: "Specialty Build", kind: "build", data: b }));
-  return shuffle([...toppingCodeQs, ...sauceCodeQs, ...portionQs, ...flatCheeseQs, ...crustQs, ...buildQs]);
+  const dominoQs = [
+    ...sampleWithoutReplacement(DOMINO_PORTION_QUESTIONS, 2).map((q) => ({ type: "Portion Recall", kind: "mc", data: q })),
+    ...sampleWithoutReplacement(DOMINO_POLICY_QUESTIONS, 2).map((q) => ({ type: "Policy", kind: "mc", data: q })),
+  ];
+  const sweetHeatQs = [genSweetHeatMC(), genSweetHeatMC()];
+  return shuffle([...toppingCodeQs, ...sauceCodeQs, ...portionQs, ...flatCheeseQs, ...crustQs, ...buildQs, ...dominoQs, ...sweetHeatQs]);
 }
 
-const NEWHIRE_QUESTION_COUNT = 4 + 5; // 9 — crust/size + all 5 specialty builds, broad knowledge only
-const CSR_QUESTION_COUNT = 10 + 2 + 8 + 2 + 2 + 3;
+const NEWHIRE_QUESTION_COUNT = 4 + 5 + 2; // crust/size + specialty builds + Domino basics, broad knowledge only
+const CSR_QUESTION_COUNT = 10 + 2 + 8 + 2 + 2 + 3 + 4 + 2;
 
 // ---------------------------------------------------------------------------
 // DAY 1 ONBOARDING — separate from New Hire/CSR (menu knowledge). Real
@@ -765,11 +730,10 @@ function generateDay1OnboardingCert() {
 const DAY1_QUESTION_COUNT = 6 + 6 + 3 + 5;
 
 // ---------------------------------------------------------------------------
-// THE DOMINO — new product launch (parmesan-crusted, pan-baked, cut in half,
-// sandwich box). Standalone module, ungated, separate from menu certs since
-// it's tied to a launch date rather than permanent menu knowledge. Sourced
-// from the official In-Store Training Playbook — every number here is a
-// verified fact from that document, not an estimate.
+// THE DOMINO — parmesan-crusted, pan-baked, cut in half, sandwich box. Now part
+// of the general training (study guide, New Hire, CSR, Endless). Sourced from
+// the official In-Store Training Playbook — every number here is a verified
+// fact from that document, not an estimate.
 // ---------------------------------------------------------------------------
 const DOMINO_VIDEO_ID = "bfGmUY3wFlk"; // unlisted — official Domino's training video
 
@@ -810,18 +774,12 @@ const DOMINO_POLICY_QUESTIONS = [
   { prompt: "Stacking prepped Domino pans more than 6 high risks:", answer: "The stack leaning and pans getting stuck together", choices: ["Nothing, it's just a suggestion", "The stack leaning and pans getting stuck together", "Faster proofing", "Better airflow"] },
 ];
 
-function generateDominoCert() {
-  const portionQs = sampleWithoutReplacement(DOMINO_PORTION_QUESTIONS, 9).map((q) => ({ type: "Portion Recall", kind: "mc", data: q }));
-  const policyQs = sampleWithoutReplacement(DOMINO_POLICY_QUESTIONS, 10).map((q) => ({ type: "Policy", kind: "mc", data: q }));
-  return shuffle([...portionQs, ...policyQs]);
-}
-const DOMINO_QUESTION_COUNT = 9 + 10;
 
 function certModeLabel(mode) {
   if (mode === "newhire") return "New Hire";
   if (mode === "csr") return "CSR";
   if (mode === "onboarding") return "Day 1 Onboarding";
-  if (mode === "domino") return "The Domino";
+  if (mode === "sweetheat") return "Sweet Heat Smokehouse";
   return "Certification";
 }
 
@@ -928,6 +886,20 @@ const DOMINO_REFERENCE_CARDS = [
   },
 ];
 
+const STUDY_CARDS = [
+  { kind: "crustSizes", data: { rows: CRUST_SIZES } },
+  ...STUDY_CODE_CATEGORIES.map((c) => ({ kind: "codes", data: c })),
+  ...SPECIALTY_BUILDS.map((b) => ({ kind: "build", data: b })),
+  ...STUDY_PORTION_GROUPS.map((g) => ({ kind: "portionTable", data: g })),
+  { kind: "portionTable", data: STUDY_FLAT_CHEESE },
+  { kind: "panBuild", data: PAN_BUILD },
+  { kind: "portionTable", data: STUDY_NY_STYLE },
+  { kind: "portionTable", data: SWEET_HEAT_STUDY_TABLE },
+  { kind: "panBuild", data: SWEET_HEAT_STUDY_PAN },
+  { kind: "video", data: { title: "The Domino — Training Video", videoId: DOMINO_VIDEO_ID } },
+  ...DOMINO_REFERENCE_CARDS.map((c) => ({ kind: "reference", data: { eyebrow: "The Domino", title: c.title, items: c.items } })),
+];
+
 function useCountdown(seconds, active, onExpire) {
   const [timeLeft, setTimeLeft] = useState(seconds);
   const expiredRef = useRef(false);
@@ -971,187 +943,31 @@ function TimerRing({ timeLeft, total }) {
   );
 }
 
-function Login({ onLogin, initialName, initialStore, signInNoProfile, onDismissSignInNoProfile }) {
-  const [name, setName] = useState(initialName || "");
-  const [store, setStore] = useState(initialStore || "");
-  const [error, setError] = useState("");
-  const [showSignIn, setShowSignIn] = useState(false);
-  const [signInEmail, setSignInEmail] = useState("");
-  const [signInSent, setSignInSent] = useState(false);
-  const [signInError, setSignInError] = useState("");
-
-  const submit = (e) => {
-    if (e) e.preventDefault();
-    const cleanStore = store.trim();
-    if (!name.trim() || !cleanStore) {
-      setError("Enter your name and store number to continue.");
-      return;
-    }
-    setError("");
-    onLogin({ name: name.trim(), store: cleanStore });
-  };
-
-  const handleSignIn = async () => {
-    if (!signInEmail.trim()) { setSignInError("Enter your email first."); return; }
-    setSignInError("");
-    const result = await sendMagicLink(signInEmail.trim(), { type: "sign-in" });
-    if (result.success) setSignInSent(true);
-    else setSignInError(result.error || "Something went wrong sending that.");
-  };
-
-  const inputStyle = { width: "100%", background: C.bg, border: `2px solid ${C.panelBorder}`, borderRadius: 4, padding: "11px 12px", color: C.white, outline: "none", fontSize: 16, fontWeight: 600, fontFamily: C.bodyFont };
-  const linkBtnStyle = { background: "none", border: "none", color: C.blue, fontWeight: 700, cursor: "pointer", padding: 0, fontSize: 13 };
-
+function DashCard({ onClick, icon, iconBg, title, desc, badge, badgeKind, locked }) {
+  const badgeColors = badgeKind === "new" ? { c: C.red, bg: C.redSoft } : { c: C.green, bg: C.greenSoft };
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: C.bg }}>
-      <div style={{ background: C.red, padding: "44px 20px 22px", position: "relative" }}>
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 6, background: "repeating-linear-gradient(-45deg, #1A1D21 0 10px, #FF2A38 10px 20px)" }} />
-        <h1 style={{ fontFamily: C.displayFont, fontSize: 44, fontWeight: 800, color: "white", margin: 0, textTransform: "uppercase", letterSpacing: "0.01em", textAlign: "center" }}>Store Up</h1>
-        <p style={{ textAlign: "center", color: "rgba(255,255,255,0.9)", fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", margin: "6px 0 0" }}>Checkmate Pizza · Team Training</p>
+    <div onClick={locked ? undefined : onClick} style={{ cursor: locked ? "default" : "pointer", background: locked ? C.panelDim : C.panel, border: `1px solid ${locked ? C.panelBorderDim : C.panelBorder}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16, marginBottom: 14, opacity: locked ? 0.6 : 1 }}>
+      <div style={{ width: 48, height: 48, borderRadius: 6, background: locked ? C.panelBorder : iconBg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>{icon}</div>
+      <div style={{ flex: 1 }}>
+        <h2 style={{ color: C.white, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {title}
+          {badge && <span style={{ fontSize: 11, fontWeight: 700, color: badgeColors.c, background: badgeColors.bg, padding: "2px 8px", borderRadius: 6, textTransform: "uppercase", letterSpacing: "0.03em" }}>{badge}</span>}
+        </h2>
+        <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>{desc}</p>
       </div>
-
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "32px 20px" }}>
-        <div style={{ width: "100%", maxWidth: 400 }}>
-          {signInNoProfile && (
-            <div style={{ background: C.redSoft, border: `2px solid ${C.red}`, borderRadius: C.cardRadius, padding: 16, marginBottom: 14 }}>
-              <p style={{ color: C.white, fontSize: 14, fontWeight: 700, margin: "0 0 4px" }}>No account found for that email</p>
-              <p style={{ color: C.textMuted, fontSize: 13, margin: "0 0 10px", lineHeight: 1.4 }}>
-                An account only gets created the first time you pass a certification while signed in — signing in on its own doesn't make one. Take a cert below, and you'll get the option to save your progress once you pass.
-              </p>
-              <button onClick={onDismissSignInNoProfile} style={{ background: "none", border: "none", color: C.red, fontWeight: 700, fontSize: 13, padding: 0, cursor: "pointer" }}>
-                Got it
-              </button>
-            </div>
-          )}
-        <div style={{ width: "100%", maxWidth: 400, background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 26 }}>
-          {!showSignIn ? (
-            <React.Fragment>
-              <p style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.5, marginBottom: 18 }}>
-                A quick self-paced quiz on our menu, portions, and prep — study at your own pace, then test yourself. Pass the New Hire certification and we'll know you're serious.
-              </p>
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: C.textMuted, fontWeight: 800, display: "block", marginBottom: 6 }}>Your Name</label>
-                <input value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} placeholder="Jordan Smith" autoComplete="off" />
-              </div>
-              <div style={{ marginBottom: 18 }}>
-                <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: C.textMuted, fontWeight: 800, display: "block", marginBottom: 6 }}>Store #</label>
-                <input
-                  value={store}
-                  onChange={(e) => setStore(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-                  style={inputStyle}
-                  placeholder="e.g. 4210"
-                  inputMode="numeric"
-                />
-              </div>
-              {error && <p style={{ color: C.errorRed, fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{error}</p>}
-              <button
-                type="button"
-                onClick={() => submit()}
-                style={{ width: "100%", background: C.blue, color: "white", fontFamily: C.displayFont, fontWeight: 700, fontSize: 16, textTransform: "uppercase", letterSpacing: "0.03em", padding: "13px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer" }}
-              >
-                Continue
-              </button>
-              <p style={{ textAlign: "center", marginTop: 14, fontSize: 13, color: C.textMuted }}>
-                Already have an account? <button onClick={() => setShowSignIn(true)} style={linkBtnStyle}>Sign in</button>
-              </p>
-            </React.Fragment>
-          ) : (
-            <React.Fragment>
-              {!signInSent ? (
-                <React.Fragment>
-                  <p style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.5, marginBottom: 18 }}>
-                    Enter the email your account was created with, and we'll send a link to sign in.
-                  </p>
-                  <div style={{ marginBottom: 18 }}>
-                    <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: C.textMuted, fontWeight: 800, display: "block", marginBottom: 6 }}>Email</label>
-                    <input
-                      value={signInEmail}
-                      onChange={(e) => setSignInEmail(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleSignIn(); }}
-                      style={inputStyle}
-                      placeholder="you@email.com"
-                    />
-                  </div>
-                  {signInError && <p style={{ color: C.errorRed, fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{signInError}</p>}
-                  <button
-                    type="button"
-                    onClick={handleSignIn}
-                    style={{ width: "100%", background: C.blue, color: "white", fontFamily: C.displayFont, fontWeight: 700, fontSize: 16, textTransform: "uppercase", letterSpacing: "0.03em", padding: "13px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer" }}
-                  >
-                    Send Magic Link
-                  </button>
-                </React.Fragment>
-              ) : (
-                <p style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.5, textAlign: "center" }}>
-                  Check your email for the link — it'll bring you right back here, signed in.
-                </p>
-              )}
-              <p style={{ textAlign: "center", marginTop: 14, fontSize: 13 }}>
-                <button onClick={() => { setShowSignIn(false); setSignInSent(false); setSignInError(""); }} style={linkBtnStyle}>← Back</button>
-              </p>
-            </React.Fragment>
-          )}
-        </div>
-        </div>
-      </div>
+      <span style={{ color: C.textFaint, fontSize: locked ? 16 : 22 }}>{locked ? "🔒" : "›"}</span>
     </div>
   );
 }
 
-function ConfirmStore({ name, store, onConfirm, onBack }) {
-  return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 20px", background: C.bg }}>
-      <div style={{ width: "100%", maxWidth: 400 }}>
-        <div style={{ background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 30, textAlign: "center" }}>
-          <p style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.08em", color: C.textMuted, fontWeight: 800, margin: "0 0 18px" }}>Double-check before you continue</p>
-
-          <p style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", color: C.textMuted, fontWeight: 700, margin: "0 0 4px" }}>Name</p>
-          <p style={{ fontFamily: C.displayFont, fontSize: 26, fontWeight: 800, color: C.white, margin: "0 0 20px", textTransform: "uppercase" }}>{name}</p>
-
-          <p style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", color: C.textMuted, fontWeight: 700, margin: "0 0 4px" }}>Store Number</p>
-          <p style={{ fontFamily: C.displayFont, fontSize: 48, fontWeight: 800, color: C.red, margin: "0 0 24px", letterSpacing: "0.02em" }}>#{store}</p>
-
-          <div style={{ display: "flex", gap: 10 }}>
-            <button
-              onClick={onBack}
-              style={{ flex: 1, background: C.bg, color: C.white, fontWeight: 700, fontSize: 15, padding: "13px 0", borderRadius: C.btnRadius, border: `2px solid ${C.panelBorder}`, cursor: "pointer" }}
-            >
-              ← Fix Something
-            </button>
-            <button
-              onClick={onConfirm}
-              style={{ flex: 2, background: C.green, color: "white", fontWeight: 800, fontSize: 15, padding: "13px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer" }}
-            >
-              ✓ That's Right
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Dashboard({ user, studyGuideViewed, newHirePassed, isDark, onToggleDark, onStartStudy, onStartNewHire, onOpenCSRPath, onStartEndless, onOpenDomino, hasAccountSession, onViewAccount, isManager, isAdmin, onViewRoster, resumeState, onResume, onDiscardResume }) {
-  const showRosterLink = isManager || isAdmin;
+function Dashboard({ studyGuideViewed, newHirePassed, isDark, onToggleDark, onStartStudy, onStartNewHire, onOpenCSRPath, onStartEndless, showSweetHeat, onOpenSweetHeat, resumeState, onResume, onDiscardResume }) {
   return (
     <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg, fontFamily: C.bodyFont }}>
       <div style={{ maxWidth: 512, margin: "0 auto" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
           <div>
-            <p style={{ color: C.textMuted, fontSize: 14, textTransform: "uppercase", letterSpacing: "0.05em" }}>Welcome back</p>
-            <h1 style={{ fontFamily: C.displayFont, fontSize: 36, fontWeight: 800, color: C.white, margin: "2px 0", textTransform: "uppercase", letterSpacing: "0.01em" }}>{user.name}</h1>
-            <p style={{ color: C.textFaint, fontSize: 14, marginBottom: (hasAccountSession || showRosterLink) ? 8 : 32 }}>Store {user.store} · {user.role}</p>
-            {hasAccountSession && (
-              <button onClick={onViewAccount} style={{ background: "none", border: "none", color: C.blue, fontSize: 13, fontWeight: 700, padding: 0, cursor: "pointer", marginBottom: showRosterLink ? 6 : 32, display: "block" }}>
-                My Account →
-              </button>
-            )}
-            {showRosterLink && (
-              <button onClick={onViewRoster} style={{ background: "none", border: "none", color: C.purple, fontSize: 13, fontWeight: 700, padding: 0, cursor: "pointer", marginBottom: 32, display: "block" }}>
-                {isAdmin ? "All Stores →" : "Store Roster →"}
-              </button>
-            )}
+            <p style={{ color: C.textMuted, fontSize: 14, textTransform: "uppercase", letterSpacing: "0.05em", margin: 0 }}>Domino's Training</p>
+            <h1 style={{ fontFamily: C.displayFont, fontSize: 36, fontWeight: 800, color: C.white, margin: "2px 0 0", textTransform: "uppercase", letterSpacing: "0.01em" }}>Store Up</h1>
           </div>
           <button onClick={onToggleDark} style={{ display: "flex", alignItems: "center", gap: 6, background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: 6, padding: "6px 12px", cursor: "pointer", color: C.white, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", flexShrink: 0 }}>
             {isDark ? "☀ Light" : "● Dark"}
@@ -1161,95 +977,31 @@ function Dashboard({ user, studyGuideViewed, newHirePassed, isDark, onToggleDark
         {resumeState && (
           <div style={{ background: C.blueSoft, border: `2px solid ${C.blue}`, borderRadius: C.cardRadius, padding: 16, marginBottom: 14 }}>
             <p style={{ fontFamily: C.displayFont, fontSize: 18, fontWeight: 700, textTransform: "uppercase", color: C.white, margin: "0 0 4px" }}>
-              Unfinished {certModeLabel(resumeState.mode)} Certification
+              Unfinished {certModeLabel(resumeState.mode)} Test
             </p>
             <p style={{ color: C.textMuted, fontSize: 13, marginBottom: 12 }}>
               You stopped at question {resumeState.qIndex + 1} of {resumeState.certQuestions.length}.
             </p>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={onResume} style={{ flex: 2, background: C.blue, color: "white", fontWeight: 700, padding: "10px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer" }}>
-                Resume
-              </button>
-              <button onClick={onDiscardResume} style={{ flex: 1, background: "transparent", color: C.textMuted, fontWeight: 700, padding: "10px 0", borderRadius: C.btnRadius, border: `2px solid ${C.panelBorder}`, cursor: "pointer" }}>
-                Discard
-              </button>
+              <button onClick={onResume} style={{ flex: 2, background: C.blue, color: "white", fontWeight: 700, padding: "10px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer" }}>Resume</button>
+              <button onClick={onDiscardResume} style={{ flex: 1, background: "transparent", color: C.textMuted, fontWeight: 700, padding: "10px 0", borderRadius: C.btnRadius, border: `2px solid ${C.panelBorder}`, cursor: "pointer" }}>Discard</button>
             </div>
           </div>
         )}
 
-        <div onClick={onStartStudy} style={{ cursor: "pointer", background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 20, display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
-          <div style={{ width: 48, height: 48, borderRadius: C.cardRadius, background: C.green, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>📖</div>
-          <div style={{ flex: 1 }}>
-            <h2 style={{ fontFamily: C.displayFont, fontWeight: 700, fontSize: 20, textTransform: "uppercase", letterSpacing: "0.02em", color: C.white, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
-              Study Guide
-              {studyGuideViewed && <span style={{ fontFamily: C.bodyFont, fontSize: 11, fontWeight: 700, color: C.green, background: C.greenSoft, padding: "2px 8px", borderRadius: 6 }}>✓ Completed</span>}
-            </h2>
-            <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>Crusts, codes, builds &amp; portions · self-paced, no timer</p>
-          </div>
-          <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
-        </div>
-
-        <div onClick={onOpenDomino} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 6, background: C.red, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>🍕</div>
-          <div style={{ flex: 1 }}>
-            <h2 style={{ color: C.white, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
-              The Domino
-              <span style={{ fontSize: 11, fontWeight: 700, color: C.red, background: C.redSoft, padding: "2px 8px", borderRadius: 6, textTransform: "uppercase", letterSpacing: "0.03em" }}>New</span>
-            </h2>
-            <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>{DOMINO_QUESTION_COUNT} questions · new product launch prep</p>
-          </div>
-          <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
-        </div>
-
-        <div onClick={onStartEndless} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 6, background: C.purple, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>∞</div>
-          <div style={{ flex: 1 }}>
-            <h2 style={{ color: C.white, fontWeight: 700, margin: 0 }}>Endless Practice</h2>
-            <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>Unlimited drills · everything mixed in · stop anytime</p>
-          </div>
-          <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
-        </div>
-
-        <div onClick={onStartNewHire} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 6, background: C.red, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>🏆</div>
-          <div style={{ flex: 1 }}>
-            <h2 style={{ color: C.white, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
-              New Hire Certification
-              {newHirePassed && <span style={{ fontSize: 11, fontWeight: 700, color: C.green, background: C.greenSoft, padding: "2px 8px", borderRadius: 6 }}>✓ Passed</span>}
-            </h2>
-            <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>{NEWHIRE_QUESTION_COUNT} questions · crust &amp; size, specialty builds · pass at 90%</p>
-          </div>
-          <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
-        </div>
-
+        {showSweetHeat && (
+          <DashCard onClick={onOpenSweetHeat} icon="🔥" iconBg={C.red} title="Sweet Heat Smokehouse" badge="New" badgeKind="new" desc={`${SWEET_HEAT_QUESTION_COUNT} questions · new specialty launch week`} />
+        )}
+        <DashCard onClick={onStartStudy} icon="📖" iconBg={C.green} title="Study Guide" badge={studyGuideViewed ? "✓ Completed" : null} desc="Crusts, codes, builds, portions & The Domino · self-paced, no timer" />
+        <DashCard onClick={onStartEndless} icon="∞" iconBg={C.purple} title="Endless Practice" desc="Unlimited drills · everything mixed in · stop anytime" />
+        <DashCard onClick={onStartNewHire} icon="🏆" iconBg={C.red} title="New Hire Certification" badge={newHirePassed ? "✓ Passed" : null} desc={`${NEWHIRE_QUESTION_COUNT} questions · crust & size, specialty builds, Domino basics · pass at 90%`} />
         {newHirePassed ? (
-          <div onClick={onOpenCSRPath} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 6, background: C.red, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>🏆</div>
-            <div style={{ flex: 1 }}>
-              <h2 style={{ color: C.white, fontWeight: 700, margin: 0 }}>CSR Certification</h2>
-              <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>{CSR_QUESTION_COUNT} questions · full codes, portions &amp; builds · pass at 90%</p>
-            </div>
-            <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
-          </div>
+          <DashCard onClick={onOpenCSRPath} icon="🏆" iconBg={C.red} title="CSR Certification" desc={`${CSR_QUESTION_COUNT} questions · full codes, portions & builds · pass at 90%`} />
         ) : (
-          <div style={{ background: C.panelDim, border: `1px solid ${C.panelBorderDim}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16, opacity: 0.6 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 6, background: C.panelBorder, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>🏆</div>
-            <div style={{ flex: 1 }}>
-              <h2 style={{ color: C.white, fontWeight: 700, margin: 0 }}>CSR Certification</h2>
-              <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>Pass New Hire Certification to unlock</p>
-            </div>
-            <span style={{ fontSize: 16 }}>🔒</span>
-          </div>
+          <DashCard locked icon="🏆" title="CSR Certification" desc="Pass New Hire Certification to unlock" />
         )}
-
-        <div style={{ marginTop: 14, background: C.panelDim, border: `1px solid ${C.panelBorderDim}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16, opacity: 0.5 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 6, background: C.panelBorder, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>🏆</div>
-          <div style={{ flex: 1 }}>
-            <h2 style={{ color: C.white, fontWeight: 700, margin: 0 }}>Manager Checklist</h2>
-            <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>Coming soon</p>
-          </div>
-          <span style={{ fontSize: 16 }}>🔒</span>
-        </div>
+        <DashCard locked icon="🏆" title="Manager Checklist" desc="Coming soon" />
+        <p style={{ color: C.textFaint, fontSize: 12, textAlign: "center", marginTop: 8 }}>Progress is saved on this device only.</p>
       </div>
     </div>
   );
@@ -1319,7 +1071,7 @@ function StudyBuildCard({ data }) {
             <div key={label} style={{ display: "flex", alignItems: "center", gap: 10, background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 6, padding: "12px 16px" }}>
               <span style={{ width: 14, height: 14, borderRadius: "50%", background: t ? t.color : "#999", flexShrink: 0, border: "1px solid rgba(0,0,0,0.15)" }} />
               <span style={{ color: C.white, fontWeight: 600, flex: 1 }}>{label}</span>
-              {t && t.code ? (
+              {t && t.codeTBD ? null : t && t.code ? (
                 <span style={{ color: C.blue, fontWeight: 800, fontSize: 14, background: "rgba(0,120,174,0.15)", padding: "3px 10px", borderRadius: 4 }}>{t.code}</span>
               ) : (
                 <span style={{ color: C.textFaint, fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>No Code</span>
@@ -1340,11 +1092,11 @@ function StudyPortionCard({ data }) {
       {data.members && <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 8, lineHeight: 1.4 }}>{data.members.join(", ")}</p>}
       {data.note && <p style={{ color: C.textFaint, fontSize: 13, marginBottom: 16, lineHeight: 1.4 }}>{data.note}</p>}
       <div style={{ background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 6, overflow: "hidden", marginTop: (data.members || data.note) ? 0 : 16 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr", background: "rgba(11,30,46,0.04)", padding: "10px 12px", fontSize: 11, fontWeight: 800, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-          <span></span><span style={{ textAlign: "center" }}>12"</span><span style={{ textAlign: "center" }}>14"</span><span style={{ textAlign: "center" }}>16"</span>
+        <div style={{ display: "grid", gridTemplateColumns: `1.4fr ${(data.headers || ['12"', '14"', '16"']).map(() => "1fr").join(" ")}`, background: "rgba(11,30,46,0.04)", padding: "10px 12px", fontSize: 11, fontWeight: 800, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          <span></span>{(data.headers || ['12"', '14"', '16"']).map((h) => <span key={h} style={{ textAlign: "center" }}>{h}</span>)}
         </div>
         {data.rows.map((row) => (
-          <div key={row.tier} style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr", padding: "12px", borderTop: `1px solid ${C.panelBorder}`, fontSize: 14 }}>
+          <div key={row.tier} style={{ display: "grid", gridTemplateColumns: `1.4fr ${(data.headers || ['12"', '14"', '16"']).map(() => "1fr").join(" ")}`, padding: "12px", borderTop: `1px solid ${C.panelBorder}`, fontSize: 14 }}>
             <span style={{ color: C.white, fontWeight: 600 }}>{row.tier}</span>
             {row.values.map((v, i) => (
               <span key={i} style={{ color: C.blue, fontWeight: 800, textAlign: "center" }}>{v}</span>
@@ -1359,7 +1111,7 @@ function StudyPortionCard({ data }) {
 function StudyPanBuildCard({ data }) {
   return (
     <div>
-      <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, marginBottom: 4 }}>Cheese — Special Build</p>
+      <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, marginBottom: 4 }}>{data.eyebrow || "Cheese — Special Build"}</p>
       <h2 style={{ color: C.white, fontSize: 24, fontWeight: 900, margin: "0 0 16px" }}>{data.title}</h2>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
         {data.items.map((item) => (
@@ -1517,12 +1269,10 @@ function TrainingVideoScreen({ title, videoId, onContinue, onExit }) {
   );
 }
 
-function ModuleHub({ module, videoWatched, studyViewed, onWatchVideo, onStudy, onTest, onBack }) {
+function ModuleHub({ module, studyViewed, onStudy, onTest, onBack }) {
   const info = module === "onboarding"
     ? { title: "Day 1 Onboarding", desc: `${DAY1_QUESTION_COUNT} questions · security, sanitation, phone & apparel`, icon: "📋", color: C.blue }
-    : { title: "The Domino", desc: `${DOMINO_QUESTION_COUNT} questions · new product launch prep`, icon: "🍕", color: C.red };
-  const hasVideo = module === "domino";
-  const studyLocked = hasVideo && !videoWatched;
+    : { title: "Sweet Heat Smokehouse", desc: `${SWEET_HEAT_QUESTION_COUNT} questions · build, portions & codes · pass at 90%`, icon: "🔥", color: C.red };
 
   return (
     <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg }}>
@@ -1533,42 +1283,17 @@ function ModuleHub({ module, videoWatched, studyViewed, onWatchVideo, onStudy, o
         <h1 style={{ fontFamily: C.displayFont, fontSize: 32, fontWeight: 800, color: C.white, textTransform: "uppercase", margin: "0 0 4px" }}>{info.title}</h1>
         <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 28 }}>{info.desc}</p>
 
-        {hasVideo && (
-          <div onClick={onWatchVideo} style={{ cursor: "pointer", background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 20, display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
-            <div style={{ width: 48, height: 48, borderRadius: C.cardRadius, background: C.purple, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 18 }}>▶</div>
-            <div style={{ flex: 1 }}>
-              <h2 style={{ color: C.white, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
-                Watch Video
-                {videoWatched && <span style={{ fontSize: 11, fontWeight: 700, color: C.green, background: C.greenSoft, padding: "2px 8px", borderRadius: 6 }}>✓ Completed</span>}
-              </h2>
-              <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>Official Domino's training video</p>
-            </div>
-            <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
+        <div onClick={onStudy} style={{ cursor: "pointer", background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 20, display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
+          <div style={{ width: 48, height: 48, borderRadius: C.cardRadius, background: C.green, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>📖</div>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ color: C.white, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+              Study
+              {studyViewed && <span style={{ fontSize: 11, fontWeight: 700, color: C.green, background: C.greenSoft, padding: "2px 8px", borderRadius: 6 }}>✓ Completed</span>}
+            </h2>
+            <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>Review everything first, at your own pace — no timer</p>
           </div>
-        )}
-
-        {studyLocked ? (
-          <div style={{ background: C.panelDim, border: `1px solid ${C.panelBorderDim}`, borderRadius: C.cardRadius, padding: 20, display: "flex", alignItems: "center", gap: 16, opacity: 0.6, marginBottom: 14 }}>
-            <div style={{ width: 48, height: 48, borderRadius: C.cardRadius, background: C.panelBorder, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 20 }}>🔒</div>
-            <div style={{ flex: 1 }}>
-              <h2 style={{ color: C.white, fontWeight: 700, margin: 0 }}>Study</h2>
-              <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>Watch the video first to unlock</p>
-            </div>
-            <span style={{ fontSize: 16 }}>🔒</span>
-          </div>
-        ) : (
-          <div onClick={onStudy} style={{ cursor: "pointer", background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 20, display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
-            <div style={{ width: 48, height: 48, borderRadius: C.cardRadius, background: C.green, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>📖</div>
-            <div style={{ flex: 1 }}>
-              <h2 style={{ color: C.white, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
-                Study
-                {studyViewed && <span style={{ fontSize: 11, fontWeight: 700, color: C.green, background: C.greenSoft, padding: "2px 8px", borderRadius: 6 }}>✓ Completed</span>}
-              </h2>
-              <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>Review everything first, at your own pace — no timer</p>
-            </div>
-            <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
-          </div>
-        )}
+          <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
+        </div>
 
         {studyViewed ? (
           <div onClick={onTest} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16 }}>
@@ -1594,23 +1319,41 @@ function ModuleHub({ module, videoWatched, studyViewed, onWatchVideo, onStudy, o
   );
 }
 
-function StudyGuide({ onFinish, onExit }) {
+function StudyVideoCard({ data }) {
+  return (
+    <div>
+      <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, marginBottom: 4 }}>The Domino</p>
+      <h2 style={{ fontFamily: C.displayFont, color: C.white, fontSize: 26, fontWeight: 800, textTransform: "uppercase", margin: "0 0 16px" }}>{data.title}</h2>
+      <div style={{ position: "relative", width: "100%", paddingTop: "56.25%", borderRadius: C.cardRadius, overflow: "hidden", background: "#000" }}>
+        <iframe
+          src={`https://www.youtube.com/embed/${data.videoId}?rel=0&modestbranding=1`}
+          title={data.title}
+          style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    </div>
+  );
+}
+
+function StudyGuide({ cards, accent, onFinish, onExit }) {
   const [i, setI] = useState(0);
-  const card = STUDY_CARDS[i];
-  const isLast = i === STUDY_CARDS.length - 1;
+  const card = cards[i];
+  const isLast = i === cards.length - 1;
 
   return (
     <div style={{ minHeight: "100vh", padding: "40px 24px", display: "flex", flexDirection: "column", background: C.bg }}>
       <div style={{ maxWidth: 512, margin: "0 auto", width: "100%", flex: 1, display: "flex", flexDirection: "column" }}>
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, color: C.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
-            <span>Card {i + 1} of {STUDY_CARDS.length}</span>
+            <span>Card {i + 1} of {cards.length}</span>
             <button onClick={onExit} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: `1px solid ${C.panelBorder}`, color: C.textMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 10px", borderRadius: 6, cursor: "pointer" }}>
               🏠 Home
             </button>
           </div>
           <div style={{ height: 6, background: C.track, borderRadius: 6, overflow: "hidden" }}>
-            <div style={{ height: "100%", background: C.green, transition: "width 0.3s", width: `${((i + 1) / STUDY_CARDS.length) * 100}%` }} />
+            <div style={{ height: "100%", background: accent || C.green, transition: "width 0.3s", width: `${((i + 1) / cards.length) * 100}%` }} />
           </div>
         </div>
 
@@ -1620,6 +1363,8 @@ function StudyGuide({ onFinish, onExit }) {
           {card.kind === "build" && <StudyBuildCard data={card.data} />}
           {card.kind === "portionTable" && <StudyPortionCard data={card.data} />}
           {card.kind === "panBuild" && <StudyPanBuildCard data={card.data} />}
+          {card.kind === "video" && <StudyVideoCard key={i} data={card.data} />}
+          {card.kind === "reference" && <ReferenceCard eyebrow={card.data.eyebrow} title={card.data.title} items={card.data.items} />}
         </div>
 
         <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
@@ -1635,7 +1380,7 @@ function StudyGuide({ onFinish, onExit }) {
               Finish ✓
             </button>
           ) : (
-            <button onClick={() => setI((v) => Math.min(STUDY_CARDS.length - 1, v + 1))} style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.blue, border: "none", color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 4, cursor: "pointer", fontSize: 15 }}>
+            <button onClick={() => setI((v) => Math.min(cards.length - 1, v + 1))} style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.blue, border: "none", color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 4, cursor: "pointer", fontSize: 15 }}>
               Next →
             </button>
           )}
@@ -2149,61 +1894,22 @@ function BuildQuestion({ item, shellProps, onAnswer }) {
   );
 }
 
-function Results({ user, results, mode, onRestart, onPass, onRetryMissed }) {
+function Results({ results, mode, onRestart, onPass, onRetryMissed }) {
   const total = results.length;
   const correct = results.filter((r) => r.correct).length;
   const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
-  const isCertMode = mode === "newhire" || mode === "csr" || mode === "onboarding" || mode === "domino";
+  const isCertMode = mode === "newhire" || mode === "csr" || mode === "onboarding" || mode === "sweetheat";
   const pass = isCertMode ? pct >= 90 : mode === "retry" ? pct === 100 : true;
-  const [sent, setSent] = useState(false);
   const missed = results.filter((r) => !r.correct && r.question);
-  const examType = mode === "newhire" ? "New Hire" : mode === "csr" ? "CSR" : mode === "onboarding" ? "Day 1 Onboarding" : mode === "domino" ? "Domino" : null;
-
-  const [email, setEmail] = useState("");
-  const [magicLinkSent, setMagicLinkSent] = useState(false);
-  const [magicLinkError, setMagicLinkError] = useState("");
-  const [saveStatus, setSaveStatus] = useState(null);
-
-  useEffect(() => {
-    const t = setTimeout(() => setSent(true), 1200);
-    return () => clearTimeout(t);
-  }, []);
 
   useEffect(() => {
     if ((mode === "newhire" || mode === "onboarding") && pass && onPass) onPass();
   }, [mode, pass, onPass]);
 
-  useEffect(() => {
-    if (!examType) return;
-    let cancelled = false;
-    (async () => {
-      setSaveStatus("checking");
-      const session = await getCurrentSession();
-      if (cancelled) return;
-      if (session) {
-        setSaveStatus("saving");
-        const result = await saveCertResult({ name: user.name, store: user.store, examType, score: pct, pass, correct, total });
-        if (cancelled) return;
-        setSaveStatus(result.success ? "saved" : "error");
-      } else {
-        setSaveStatus("no-session");
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  const handleSendLink = async () => {
-    if (!email.trim()) { setMagicLinkError("Enter an email first."); return; }
-    setMagicLinkError("");
-    const result = await sendMagicLink(email.trim(), { type: "save-cert", payload: { name: user.name, store: user.store, examType, score: pct, pass, correct, total } });
-    if (result.success) setMagicLinkSent(true);
-    else setMagicLinkError(result.error || "Something went wrong sending that.");
-  };
-
   const title = mode === "retry"
     ? (missed.length === 0 ? "All Cleaned Up!" : "Retry Complete")
-    : isCertMode ? (pass ? "Certification Passed" : "Not Yet — Retake Needed") : "Practice Session Complete";
-  const subtitle = mode === "retry" ? "Missed Question Retry" : mode === "endless" ? "Endless Practice" : `${certModeLabel(mode)} Certification`;
+    : isCertMode ? (pass ? "Test Passed" : "Not Yet — Retake Needed") : "Practice Session Complete";
+  const subtitle = mode === "retry" ? "Missed Question Retry" : mode === "endless" ? "Endless Practice" : `${certModeLabel(mode)} Test`;
 
   return (
     <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg }}>
@@ -2216,20 +1922,6 @@ function Results({ user, results, mode, onRestart, onPass, onRetryMissed }) {
           <p style={{ color: C.textMuted, fontSize: 14, margin: 0 }}>{correct} of {total} correct · {subtitle}</p>
         </div>
 
-        <div style={{ background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 8, padding: 16, marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-            <span>✉️</span>
-            <span style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", color: C.textMuted, fontWeight: 700 }}>Store Notification</span>
-          </div>
-          {!sent ? (
-            <p style={{ color: C.textFaint, fontSize: 14 }}>Sending results to Store #{user.store}…</p>
-          ) : (
-            <p style={{ color: C.white, fontSize: 14, margin: 0 }}>
-              ✅ Emailed to <span style={{ fontWeight: 600 }}>Store #{user.store}</span> — {user.name} scored {pct}% ({subtitle}).
-            </p>
-          )}
-        </div>
-
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 24, maxHeight: 320, overflowY: "auto" }}>
           {results.map((r, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.panelDim, borderRadius: 4, padding: "8px 12px", fontSize: 14 }}>
@@ -2238,41 +1930,6 @@ function Results({ user, results, mode, onRestart, onPass, onRetryMissed }) {
             </div>
           ))}
         </div>
-
-        {saveStatus === "saved" && (
-          <div style={{ background: C.greenSoft, border: `2px solid ${C.green}`, borderRadius: C.cardRadius, padding: "12px 16px", marginBottom: 16, color: C.white, fontSize: 14, fontWeight: 600 }}>
-            ✓ Saved to your account
-          </div>
-        )}
-        {saveStatus === "error" && (
-          <div style={{ background: C.redSoft, border: `2px solid ${C.red}`, borderRadius: C.cardRadius, padding: "12px 16px", marginBottom: 16, color: C.white, fontSize: 14 }}>
-            Couldn't save this to your account — your result still went to the store as usual.
-          </div>
-        )}
-
-        {(mode === "newhire" || mode === "domino") && pass && saveStatus === "no-session" && !magicLinkSent && (
-          <div style={{ background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 18, marginBottom: 16 }}>
-            <p style={{ fontFamily: C.displayFont, fontSize: 20, fontWeight: 700, textTransform: "uppercase", color: C.white, margin: "0 0 4px" }}>Save Your Progress</p>
-            <p style={{ color: C.textMuted, fontSize: 13, marginBottom: 12, lineHeight: 1.4 }}>
-              You passed {certModeLabel(mode)} — enter your email and we'll send a link to create an account, so this and future results are saved.
-            </p>
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@email.com"
-              style={{ width: "100%", background: C.bg, border: `1px solid ${C.panelBorder}`, borderRadius: 4, padding: "10px 12px", color: C.white, fontSize: 14, outline: "none", marginBottom: 10, boxSizing: "border-box" }}
-            />
-            {magicLinkError && <p style={{ color: C.errorRed, fontSize: 12, marginBottom: 8 }}>{magicLinkError}</p>}
-            <button onClick={handleSendLink} style={{ width: "100%", background: C.blue, color: "white", fontWeight: 700, padding: "11px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer", fontSize: 16 }}>
-              Send Magic Link
-            </button>
-          </div>
-        )}
-        {magicLinkSent && (
-          <div style={{ background: C.blueSoft, border: `2px solid ${C.blue}`, borderRadius: C.cardRadius, padding: "12px 16px", marginBottom: 16, color: C.white, fontSize: 14 }}>
-            Check your email for the link — come back and this result saves automatically.
-          </div>
-        )}
 
         {missed.length > 0 && (mode === "endless" || mode === "retry") && (
           <button
@@ -2284,7 +1941,7 @@ function Results({ user, results, mode, onRestart, onPass, onRetryMissed }) {
         )}
 
         <button onClick={onRestart} style={{ width: "100%", background: C.blue, color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 4, border: "none", cursor: "pointer", fontSize: 16 }}>
-          {isCertMode && !pass ? "Retake Course" : "Back to Dashboard"}
+          {mode === "onboarding" ? "Back to CSR Path" : "Back to Dashboard"}
         </button>
       </div>
     </div>
@@ -2305,32 +1962,33 @@ function renderQuestion(q, shellProps, onAnswer) {
   return null;
 }
 
+function BrokenStateScreen({ onHome }) {
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 20px", background: C.bg }}>
+      <div style={{ width: "100%", maxWidth: 400, background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 30, textAlign: "center" }}>
+        <h1 style={{ fontFamily: C.displayFont, fontSize: 24, fontWeight: 800, color: C.white, margin: "0 0 10px", textTransform: "uppercase" }}>Something Went Sideways</h1>
+        <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 20 }}>That screen couldn't load. Head back home and try again.</p>
+        <button onClick={onHome} style={{ width: "100%", background: C.blue, color: "white", fontWeight: 800, fontSize: 15, padding: "13px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer" }}>Back to Dashboard</button>
+      </div>
+    </div>
+  );
+}
+
 function App() {
-  const [user, setUser] = useState(null);
-  const [pendingLogin, setPendingLogin] = useState(null);
-  const [screen, setScreen] = useState("login");
-  const [mode, setMode] = useState(null); // 'newhire' | 'csr' | 'endless'
+  const [screen, setScreen] = useState("dashboard");
+  const [mode, setMode] = useState(null); // 'newhire' | 'csr' | 'onboarding' | 'sweetheat' | 'endless' | 'retry'
   const [qIndex, setQIndex] = useState(0);
   const [results, setResults] = useState([]);
   const [endlessQueue, setEndlessQueue] = useState([]);
   const [certQuestions, setCertQuestions] = useState(null);
-  const [studyGuideViewed, setStudyGuideViewed] = useState(false);
-  const [newHirePassed, setNewHirePassed] = useState(false);
-  const [onboardingPassed, setOnboardingPassed] = useState(false);
+  const [progress, setProgress] = useState(() => loadProgress());
   const [enabledCategories, setEnabledCategories] = useState(DEFAULT_ENABLED_CATEGORIES);
   const [isDark, setIsDark] = useState(function () {
     try { return localStorage.getItem("storeup-dark") === "1"; } catch (e) { return false; }
   });
   const [seenTimerWarning, setSeenTimerWarning] = useState(() => hasSeenTimerWarning());
   const [pendingStartFn, setPendingStartFn] = useState(null);
-  const [hasAccountSession, setHasAccountSession] = useState(false);
-  const [isManager, setIsManager] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [signInNoProfile, setSignInNoProfile] = useState(false);
   const [resumeState, setResumeStateVal] = useState(() => loadResumeState());
-  const [onboardingStudyViewed, setOnboardingStudyViewed] = useState(false);
-  const [dominoStudyViewed, setDominoStudyViewed] = useState(false);
-  const [dominoVideoWatched, setDominoVideoWatched] = useState(false);
   const [hubModule, setHubModule] = useState(null);
   const [preTimerWarningScreen, setPreTimerWarningScreen] = useState("dashboard");
 
@@ -2340,60 +1998,17 @@ function App() {
     try { localStorage.setItem("storeup-dark", isDark ? "1" : "0"); } catch (e) { /* ignore */ }
   }, [isDark]);
 
-  const refreshAccountSession = async () => {
-    const session = await getCurrentSession();
-    setHasAccountSession(!!session);
-    return !!session;
-  };
-
-  const [pendingSaveResult, setPendingSaveResult] = useState(null);
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const intent = readStashedIntent();
-      if (!intent) {
-        const hasSession = await refreshAccountSession();
-        if (hasSession) {
-          const profile = await fetchOwnProfile();
-          if (!cancelled && profile) {
-            setUser({ name: profile.name, store: profile.store, role: "New Hire" });
-            setIsManager(!!profile.is_manager);
-            setIsAdmin(!!profile.is_admin);
-            setScreen("dashboard");
-          }
-        }
-        return;
-      }
-      const session = await getCurrentSession();
-      if (cancelled) return;
-      if (!session) return;
-      if (intent.type === "save-cert") {
-        const result = await saveCertResult(intent.payload);
-        if (cancelled) return;
-        if (result.success) {
-          clearStashedIntent();
-          setPendingSaveResult(intent.payload);
-          await refreshAccountSession();
-        }
-      } else if (intent.type === "sign-in") {
-        clearStashedIntent();
-        if (cancelled) return;
-        await refreshAccountSession();
-        const profile = await fetchOwnProfile();
-        if (cancelled) return;
-        if (profile) {
-          setUser({ name: profile.name, store: profile.store, role: "New Hire" });
-          setIsManager(!!profile.is_manager);
-          setIsAdmin(!!profile.is_admin);
-          setScreen("account");
-        } else {
-          setSignInNoProfile(true);
-          setScreen("login");
-        }
-      }
-    })();
-    return () => { cancelled = true; };
+  const markProgress = useCallback((key) => {
+    setProgress((prev) => {
+      if (prev[key]) return prev;
+      const next = { ...prev, [key]: true };
+      saveProgress(next);
+      return next;
+    });
   }, []);
+
+  const newHirePassed = !!progress.newHirePassed;
+  const onboardingPassed = !!progress.onboardingPassed;
 
   const toggleCategory = (key) => {
     setEnabledCategories((prev) => {
@@ -2403,62 +2018,31 @@ function App() {
     });
   };
 
-  const startStudy = () => setScreen("studyguide");
-  const finishStudy = () => {
-    setStudyGuideViewed(true);
-    setScreen("dashboard");
-  };
-
-  const startNewHire = () => {
-    setHubModule(null);
+  const beginCert = (m, questions) => {
     clearResumeState();
     setResumeStateVal(null);
-    setMode("newhire");
+    setMode(m);
     setQIndex(0);
     setResults([]);
-    setCertQuestions(generateNewHireCert());
+    setCertQuestions(questions);
     setScreen("quiz");
   };
 
+  const startStudy = () => setScreen("studyguide");
+  const finishStudy = () => { markProgress("studyGuideViewed"); setScreen("dashboard"); };
+  const startNewHire = () => { setHubModule(null); beginCert("newhire", generateNewHireCert()); };
   const startCSR = () => {
     if (!newHirePassed || !onboardingPassed) return;
     setHubModule(null);
-    clearResumeState();
-    setResumeStateVal(null);
-    setMode("csr");
-    setQIndex(0);
-    setResults([]);
-    setCertQuestions(generateCSRCert());
-    setScreen("quiz");
+    beginCert("csr", generateCSRCert());
   };
-
-  const startOnboarding = () => {
-    clearResumeState();
-    setResumeStateVal(null);
-    setMode("onboarding");
-    setQIndex(0);
-    setResults([]);
-    setCertQuestions(generateDay1OnboardingCert());
-    setScreen("quiz");
-  };
-
-  const startDomino = () => {
-    clearResumeState();
-    setResumeStateVal(null);
-    setMode("domino");
-    setQIndex(0);
-    setResults([]);
-    setCertQuestions(generateDominoCert());
-    setScreen("quiz");
-  };
+  const startOnboarding = () => beginCert("onboarding", generateDay1OnboardingCert());
+  const startSweetHeat = () => beginCert("sweetheat", generateSweetHeatCert());
 
   const openOnboarding = () => { setHubModule("onboarding"); setScreen("modulehub"); };
+  const openSweetHeat = () => { setHubModule("sweetheat"); setScreen("modulehub"); };
   const openCSRPath = () => setScreen("csrhub");
-  const openDomino = () => { setHubModule("domino"); setScreen("modulehub"); };
-  const finishOnboardingStudy = () => { setOnboardingStudyViewed(true); setScreen("modulehub"); };
-  const finishDominoStudy = () => { setDominoStudyViewed(true); setScreen("modulehub"); };
-  const openDominoVideo = () => setScreen("dominovideo");
-  const finishDominoVideo = () => { setDominoVideoWatched(true); setScreen("modulehub"); };
+  const finishModuleStudy = (key) => { markProgress(key); setScreen("modulehub"); };
 
   const startEndless = () => {
     setHubModule(null);
@@ -2504,7 +2088,8 @@ function App() {
     setResumeStateVal(null);
   };
 
-  const fixedQuestions = mode === "newhire" || mode === "csr" || mode === "onboarding" || mode === "domino" || mode === "retry" ? certQuestions : null;
+  const isResumableCert = mode === "newhire" || mode === "csr" || mode === "onboarding" || mode === "sweetheat";
+  const fixedQuestions = isResumableCert || mode === "retry" ? certQuestions : null;
   const currentQuestion = fixedQuestions ? fixedQuestions[qIndex] : endlessQueue[qIndex];
 
   const handleAnswer = (correct) => {
@@ -2513,12 +2098,9 @@ function App() {
     setResults(next);
     if (fixedQuestions) {
       const nextIndex = qIndex + 1;
-      const isResumableCert = mode === "newhire" || mode === "csr" || mode === "onboarding" || mode === "domino";
       if (nextIndex < fixedQuestions.length) {
         setQIndex(nextIndex);
-        if (isResumableCert) {
-          saveResumeState(mode, fixedQuestions, nextIndex, next);
-        }
+        if (isResumableCert) saveResumeState(mode, fixedQuestions, nextIndex, next);
       } else {
         if (isResumableCert) {
           clearResumeState();
@@ -2533,168 +2115,88 @@ function App() {
   };
 
   const endSession = () => setScreen("results");
+  const onPass = useCallback(() => {
+    if (mode === "newhire") markProgress("newHirePassed");
+    if (mode === "onboarding") markProgress("onboardingPassed");
+  }, [mode, markProgress]);
 
   const correctCount = results.filter((r) => r.correct).length;
   const wrongCount = results.length - correctCount;
+  const sweetHeatActive = sweetHeatLaunchActive();
+  const hubStudyKey = hubModule === "onboarding" ? "onboardingStudyViewed" : "sweetHeatStudyViewed";
+
+  const known =
+    screen === "dashboard" ||
+    screen === "studyguide" ||
+    screen === "csrhub" ||
+    (screen === "modulehub" && !!hubModule) ||
+    screen === "onboardingstudy" ||
+    screen === "sweetheatstudy" ||
+    screen === "timerwarning" ||
+    (screen === "quiz" && !!currentQuestion) ||
+    screen === "results";
 
   return (
     <div style={{ width: "100%", minHeight: "100vh" }}>
-      {pendingSaveResult ? (
-        <MagicLinkConfirmation result={pendingSaveResult} onContinue={() => setPendingSaveResult(null)} />
-      ) : (
-        <React.Fragment>
-          {screen === "login" && (
-            <Login
-              onLogin={(u) => { setPendingLogin(u); setScreen("confirmstore"); }}
-              initialName={pendingLogin && pendingLogin.name}
-              initialStore={pendingLogin && pendingLogin.store}
-              signInNoProfile={signInNoProfile}
-              onDismissSignInNoProfile={() => setSignInNoProfile(false)}
-            />
-          )}
-          {screen === "confirmstore" && pendingLogin && (
-            <ConfirmStore
-              name={pendingLogin.name}
-              store={pendingLogin.store}
-              onBack={() => setScreen("login")}
-              onConfirm={() => {
-                setUser({ name: pendingLogin.name, store: pendingLogin.store, role: "New Hire" });
-                setScreen("dashboard");
-              }}
-            />
-          )}
-          {screen === "dashboard" && user && (
-            <Dashboard
-              user={user}
-              studyGuideViewed={studyGuideViewed}
-              newHirePassed={newHirePassed}
-              isDark={isDark}
-              onToggleDark={() => setIsDark((d) => !d)}
-              onStartStudy={startStudy}
-              onStartNewHire={guardedStart(startNewHire)}
-              onOpenCSRPath={openCSRPath}
-              onStartEndless={guardedStart(startEndless)}
-              onOpenDomino={openDomino}
-              hasAccountSession={hasAccountSession}
-              onViewAccount={() => setScreen("account")}
-              isManager={isManager}
-              isAdmin={isAdmin}
-              onViewRoster={() => setScreen("managerdashboard")}
-              resumeState={resumeState}
-              onResume={resumeCert}
-              onDiscardResume={discardResume}
-            />
-          )}
-          {screen === "studyguide" && <StudyGuide onFinish={finishStudy} onExit={() => setScreen("dashboard")} />}
-          {screen === "csrhub" && (
-            <CSRPathHub
-              onboardingPassed={onboardingPassed}
-              onOpenOnboarding={openOnboarding}
-              onTest={guardedStart(startCSR)}
-              onBack={() => setScreen("dashboard")}
-            />
-          )}
-          {screen === "modulehub" && hubModule && (
-            <ModuleHub
-              module={hubModule}
-              videoWatched={dominoVideoWatched}
-              studyViewed={hubModule === "onboarding" ? onboardingStudyViewed : dominoStudyViewed}
-              onWatchVideo={openDominoVideo}
-              onStudy={() => setScreen(hubModule === "onboarding" ? "onboardingstudy" : "dominostudy")}
-              onTest={guardedStart(hubModule === "onboarding" ? startOnboarding : startDomino)}
-              onBack={() => { const dest = hubModule === "onboarding" ? "csrhub" : "dashboard"; setHubModule(null); setScreen(dest); }}
-            />
-          )}
-          {screen === "onboardingstudy" && (
-            <ReferenceStudyGuide eyebrow="Day 1 Onboarding" cards={ONBOARDING_REFERENCE_CARDS} onFinish={finishOnboardingStudy} onExit={() => setScreen("modulehub")} />
-          )}
-          {screen === "dominostudy" && (
-            <ReferenceStudyGuide eyebrow="The Domino" cards={DOMINO_REFERENCE_CARDS} onFinish={finishDominoStudy} onExit={() => setScreen("modulehub")} />
-          )}
-          {screen === "dominovideo" && (
-            <TrainingVideoScreen title="The Domino — Training Video" videoId={DOMINO_VIDEO_ID} onContinue={finishDominoVideo} onExit={() => setScreen("modulehub")} />
-          )}
-          {screen === "timerwarning" && (
-            <TimerWarningScreen onContinue={acknowledgeTimerWarning} onBack={() => { setPendingStartFn(null); setScreen(preTimerWarningScreen); }} />
-          )}
-          {screen === "account" && (
-            <AccountScreen onBack={() => setScreen("dashboard")} />
-          )}
-          {screen === "managerdashboard" && (
-            <ManagerDashboard onBack={() => setScreen("dashboard")} isAdmin={isAdmin} />
-          )}
-          {screen === "quiz" && currentQuestion && renderQuestion(
-            currentQuestion,
-            { index: qIndex, total: fixedQuestions ? fixedQuestions.length : null, correctCount, wrongCount, onEndSession: mode === "endless" ? endSession : null, extraHeader: mode === "endless" ? <CategoryToggles enabled={enabledCategories} onToggle={toggleCategory} /> : null, revealAnswer: mode === "endless" || mode === "retry" },
-            handleAnswer
-          )}
-          {screen === "results" && user && (
-            <Results
-              user={user}
-              results={results}
-              mode={mode}
-              onRestart={() => setScreen(mode === "onboarding" ? "csrhub" : "dashboard")}
-              onPass={() => {
-                if (mode === "newhire") setNewHirePassed(true);
-                if (mode === "onboarding") setOnboardingPassed(true);
-              }}
-              onRetryMissed={startRetry}
-            />
-          )}
-          {!(
-            screen === "login" ||
-            (screen === "confirmstore" && !!pendingLogin) ||
-            (screen === "dashboard" && !!user) ||
-            screen === "csrhub" ||
-            (screen === "modulehub" && !!hubModule) ||
-            screen === "onboardingstudy" ||
-            screen === "dominostudy" ||
-            screen === "dominovideo" ||
-            screen === "timerwarning" ||
-            screen === "account" ||
-            screen === "managerdashboard" ||
-            (screen === "quiz" && !!currentQuestion) ||
-            (screen === "results" && !!user) ||
-            screen === "studyguide"
-          ) && (
-            <BrokenStateScreen onGoToLogin={() => setScreen("login")} />
-          )}
-        </React.Fragment>
+      {screen === "dashboard" && (
+        <Dashboard
+          studyGuideViewed={!!progress.studyGuideViewed}
+          newHirePassed={newHirePassed}
+          isDark={isDark}
+          onToggleDark={() => setIsDark((d) => !d)}
+          onStartStudy={startStudy}
+          onStartNewHire={guardedStart(startNewHire)}
+          onOpenCSRPath={openCSRPath}
+          onStartEndless={guardedStart(startEndless)}
+          showSweetHeat={sweetHeatActive}
+          onOpenSweetHeat={openSweetHeat}
+          resumeState={resumeState}
+          onResume={resumeCert}
+          onDiscardResume={discardResume}
+        />
       )}
-    </div>
-  );
-}
-
-function MagicLinkConfirmation({ result, onContinue }) {
-  return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 20px", background: C.bg }}>
-      <div style={{ width: "100%", maxWidth: 400, background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 30, textAlign: "center" }}>
-        <p style={{ fontSize: 40, margin: "0 0 12px" }}>✓</p>
-        <h1 style={{ fontFamily: C.displayFont, fontSize: 26, fontWeight: 800, color: C.white, margin: "0 0 8px", textTransform: "uppercase" }}>Account Created</h1>
-        <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 20, lineHeight: 1.5 }}>
-          {result.name}, your {result.examType} result ({result.score}%) is saved. Your store will review and activate your account.
-        </p>
-        <button onClick={onContinue} style={{ width: "100%", background: C.blue, color: "white", fontWeight: 800, fontSize: 15, padding: "13px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer" }}>
-          Continue
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function BrokenStateScreen({ onGoToLogin }) {
-  return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 20px", background: C.bg }}>
-      <div style={{ width: "100%", maxWidth: 400, background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 30, textAlign: "center" }}>
-        <p style={{ fontSize: 34, margin: "0 0 10px" }}>⚠</p>
-        <h1 style={{ fontFamily: C.displayFont, fontSize: 22, fontWeight: 800, color: C.white, margin: "0 0 8px", textTransform: "uppercase" }}>Something Went Sideways</h1>
-        <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 20, lineHeight: 1.5 }}>
-          This screen couldn't load. Head back to the start and try again.
-        </p>
-        <button onClick={onGoToLogin} style={{ width: "100%", background: C.blue, color: "white", fontWeight: 700, fontSize: 15, padding: "13px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer" }}>
-          Back to Start
-        </button>
-      </div>
+      {screen === "studyguide" && <StudyGuide cards={STUDY_CARDS} onFinish={finishStudy} onExit={() => setScreen("dashboard")} />}
+      {screen === "csrhub" && (
+        <CSRPathHub
+          onboardingPassed={onboardingPassed}
+          onOpenOnboarding={openOnboarding}
+          onTest={guardedStart(startCSR)}
+          onBack={() => setScreen("dashboard")}
+        />
+      )}
+      {screen === "modulehub" && hubModule && (
+        <ModuleHub
+          module={hubModule}
+          studyViewed={!!progress[hubStudyKey]}
+          onStudy={() => setScreen(hubModule === "onboarding" ? "onboardingstudy" : "sweetheatstudy")}
+          onTest={guardedStart(hubModule === "onboarding" ? startOnboarding : startSweetHeat)}
+          onBack={() => { const dest = hubModule === "onboarding" ? "csrhub" : "dashboard"; setHubModule(null); setScreen(dest); }}
+        />
+      )}
+      {screen === "onboardingstudy" && (
+        <ReferenceStudyGuide eyebrow="Day 1 Onboarding" cards={ONBOARDING_REFERENCE_CARDS} onFinish={() => finishModuleStudy("onboardingStudyViewed")} onExit={() => setScreen("modulehub")} />
+      )}
+      {screen === "sweetheatstudy" && (
+        <StudyGuide cards={SWEET_HEAT_STUDY_CARDS} accent={C.red} onFinish={() => finishModuleStudy("sweetHeatStudyViewed")} onExit={() => setScreen("modulehub")} />
+      )}
+      {screen === "timerwarning" && (
+        <TimerWarningScreen onContinue={acknowledgeTimerWarning} onBack={() => { setPendingStartFn(null); setScreen(preTimerWarningScreen); }} />
+      )}
+      {screen === "quiz" && currentQuestion && renderQuestion(
+        currentQuestion,
+        { index: qIndex, total: fixedQuestions ? fixedQuestions.length : null, correctCount, wrongCount, onEndSession: mode === "endless" ? endSession : null, extraHeader: mode === "endless" ? <CategoryToggles enabled={enabledCategories} onToggle={toggleCategory} /> : null, revealAnswer: mode === "endless" || mode === "retry" },
+        handleAnswer
+      )}
+      {screen === "results" && (
+        <Results
+          results={results}
+          mode={mode}
+          onRestart={() => setScreen(mode === "onboarding" ? "csrhub" : "dashboard")}
+          onPass={onPass}
+          onRetryMissed={startRetry}
+        />
+      )}
+      {!known && <BrokenStateScreen onHome={() => setScreen("dashboard")} />}
     </div>
   );
 }
@@ -2719,187 +2221,6 @@ function TimerWarningScreen({ onContinue, onBack }) {
   );
 }
 
-const MANAGER_TEST_LABELS = ["New Hire", "Day 1 Onboarding", "CSR", "Domino"];
-const MANAGER_TEST_SHORT = { "New Hire": "NH", "Day 1 Onboarding": "D1", "CSR": "CSR", "Domino": "DOM" };
-
-function ManagerDashboard({ onBack, isAdmin }) {
-  const [loading, setLoading] = useState(true);
-  const [store, setStore] = useState(null);
-  const [roster, setRoster] = useState([]);
-  const [historyByPerson, setHistoryByPerson] = useState({});
-  const [expandedId, setExpandedId] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const own = await fetchOwnProfile();
-      if (!own) { setLoading(false); return; }
-      const results = await Promise.all([
-        isAdmin ? fetchAllProfiles() : fetchStoreRoster(own.store),
-        fetchStoreCertHistory(),
-      ]);
-      if (cancelled) return;
-      const people = results[0];
-      const allHistory = results[1];
-      if (!isAdmin) setStore(own.store);
-      setRoster(people);
-      const grouped = {};
-      allHistory.forEach((h) => {
-        if (!grouped[h.profile_id]) grouped[h.profile_id] = [];
-        grouped[h.profile_id].push(h);
-      });
-      setHistoryByPerson(grouped);
-      setLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, [isAdmin]);
-
-  const renderPersonRow = (person) => {
-    const attempts = historyByPerson[person.id] || [];
-    const isExpanded = expandedId === person.id;
-    return (
-      <div key={person.id} style={{ background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 16 }}>
-        <div onClick={() => setExpandedId(isExpanded ? null : person.id)} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <p style={{ color: C.white, fontWeight: 700, margin: 0 }}>{person.name}</p>
-            <span style={{ display: "inline-block", marginTop: 4, background: person.activated ? C.greenSoft : C.panelDim, border: `1px solid ${person.activated ? C.green : C.panelBorderDim}`, borderRadius: 999, padding: "2px 10px", fontSize: 11, fontWeight: 700, color: person.activated ? C.green : C.textMuted, textTransform: "uppercase" }}>
-              {person.activated ? "Activated" : "Pending"}
-            </span>
-          </div>
-          <span style={{ color: C.textFaint, fontSize: 22, display: "inline-block", transform: isExpanded ? "rotate(90deg)" : "none", transition: "transform 0.2s" }}>›</span>
-        </div>
-
-        <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
-          {MANAGER_TEST_LABELS.map((t) => {
-            const passed = attempts.some((a) => a.exam_type === t && a.pass);
-            return (
-              <span key={t} style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: passed ? C.greenSoft : C.panelDim, color: passed ? C.green : C.textFaint, border: `1px solid ${passed ? C.green : C.panelBorderDim}` }}>
-                {passed ? "✓" : "—"} {MANAGER_TEST_SHORT[t]}
-              </span>
-            );
-          })}
-        </div>
-
-        {isExpanded && (
-          <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.panelBorder}`, display: "flex", flexDirection: "column", gap: 6 }}>
-            {attempts.length === 0 ? (
-              <p style={{ color: C.textFaint, fontSize: 13, margin: 0 }}>No cert attempts yet.</p>
-            ) : attempts.map((h) => (
-              <div key={h.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                <span style={{ color: C.textMuted }}>{h.exam_type} · {new Date(h.taken_at).toLocaleDateString()}</span>
-                <span style={{ fontWeight: 700, color: h.pass ? C.green : C.red }}>{h.score}%</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const groupedByStore = isAdmin
-    ? roster.reduce((acc, p) => {
-        (acc[p.store] = acc[p.store] || []).push(p);
-        return acc;
-      }, {})
-    : null;
-
-  return (
-    <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg }}>
-      <div style={{ maxWidth: 512, margin: "0 auto" }}>
-        <button onClick={onBack} style={{ background: "none", border: `1px solid ${C.panelBorder}`, color: C.textMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 10px", borderRadius: 6, cursor: "pointer", marginBottom: 20 }}>
-          ← Home
-        </button>
-        <h1 style={{ fontFamily: C.displayFont, fontSize: 32, fontWeight: 800, color: C.white, textTransform: "uppercase", margin: "0 0 4px" }}>{isAdmin ? "All Stores" : "Store Roster"}</h1>
-        <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 24 }}>
-          {isAdmin ? "" : store ? `Store ${store}` : ""}{roster.length > 0 ? `${isAdmin ? "" : " · "}${roster.length} ${roster.length === 1 ? "person" : "people"}${isAdmin ? " across all stores" : ""}` : ""}
-        </p>
-
-        {loading ? (
-          <p style={{ color: C.textMuted, fontSize: 14 }}>Loading roster…</p>
-        ) : roster.length === 0 ? (
-          <p style={{ color: C.textFaint, fontSize: 14 }}>No accounts yet{isAdmin ? "" : " at this store"}.</p>
-        ) : isAdmin ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {Object.keys(groupedByStore).sort().map((storeKey) => (
-              <div key={storeKey}>
-                <p style={{ color: C.textMuted, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Store {storeKey}</p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {groupedByStore[storeKey].map(renderPersonRow)}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {roster.map(renderPersonRow)}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function AccountScreen({ onBack }) {
-  const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState(null);
-  const [history, setHistory] = useState([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const results = await Promise.all([fetchOwnProfile(), fetchOwnCertHistory()]);
-      if (cancelled) return;
-      setProfile(results[0]);
-      setHistory(results[1]);
-      setLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  return (
-    <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg }}>
-      <div style={{ maxWidth: 512, margin: "0 auto" }}>
-        <button onClick={onBack} style={{ background: "none", border: "none", color: C.textMuted, fontSize: 13, fontWeight: 700, cursor: "pointer", padding: 0, marginBottom: 20 }}>
-          ← Back
-        </button>
-
-        {loading ? (
-          <p style={{ color: C.textMuted, fontSize: 14 }}>Loading your account…</p>
-        ) : !profile ? (
-          <p style={{ color: C.textMuted, fontSize: 14 }}>Couldn't load your account — try signing in again.</p>
-        ) : (
-          <React.Fragment>
-            <h1 style={{ fontFamily: C.displayFont, fontSize: 32, fontWeight: 800, color: C.white, textTransform: "uppercase", margin: "0 0 4px" }}>{profile.name}</h1>
-            <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 14 }}>Store {profile.store}</p>
-            <div style={{ display: "inline-block", background: profile.activated ? C.greenSoft : C.panelDim, border: `2px solid ${profile.activated ? C.green : C.panelBorder}`, borderRadius: 999, padding: "5px 14px", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: profile.activated ? C.green : C.textMuted, marginBottom: 28 }}>
-              {profile.activated ? "✓ Activated" : "Pending Review"}
-            </div>
-
-            <p style={{ fontFamily: C.displayFont, fontSize: 20, fontWeight: 700, textTransform: "uppercase", color: C.white, margin: "0 0 12px" }}>Certification History</p>
-            {history.length === 0 ? (
-              <p style={{ color: C.textFaint, fontSize: 14 }}>No cert attempts saved yet.</p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {history.map((h) => (
-                  <div key={h.id} style={{ background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div>
-                      <p style={{ color: C.white, fontWeight: 700, margin: 0 }}>{h.exam_type}</p>
-                      <p style={{ color: C.textFaint, fontSize: 12, margin: "2px 0 0" }}>{new Date(h.taken_at).toLocaleDateString()}</p>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <p style={{ fontFamily: C.displayFont, fontSize: 22, fontWeight: 800, color: h.pass ? C.green : C.red, margin: 0 }}>{h.score}%</p>
-                      <p style={{ color: C.textFaint, fontSize: 11, margin: 0, textTransform: "uppercase", fontWeight: 700 }}>{h.pass ? "Pass" : "Fail"}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </React.Fragment>
-        )}
-      </div>
-    </div>
-  );
-}
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 </script>
