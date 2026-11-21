@@ -1980,13 +1980,13 @@ const LIBRARY_TOPICS = [
     summary: "The base skill. Stretch, sauce, cheese, toppings, to the edge, every time.",
     steps: [
       { t: "Use dough that is ready", d: "Dough should be properly tempered and not sticky or torn. If it fights you or snaps back, it is not ready and no technique will fix it. Tell the manager." },
-      { t: "Form the rim", d: "Using your fingertips, press a rim around the dough ball. The finished rim is about 3/4 inch wide." },
-      { t: "Stretch with one hand, anchor with the other", d: "Use one hand to stretch the dough out from the rim and the other as an anchor. Keep turning the dough and stretch to the size you need: 10, 12, 14 or 16 inch." },
+      { t: "Form the edge", d: "Lightly dust both sides of the dough with cornmeal, soft sticky side facing up. Place the middle, ring and little fingers of both hands on the dough at the 12 o'clock position at the edge, palms cupped so they stay off the center. Press down with those six fingers, pivot to about 2 o'clock, lift your hands off, return to 12 and repeat all the way around. The standard calls for a rim of about 1/4 inch (6 mm). Some job aids show a wider rim, so go by your trainer if they say otherwise." },
+      { t: "Stretch with one hand, anchor with the other", d: "Use the same six fingers. Hands over the dough with the middle fingers touching 12 o'clock just inside the edge, thumbs and index fingers raised off the center. With slight downward pressure the anchor hand holds the dough while the stretching hand moves outward toward 3 o'clock. Lift the anchor hand, rotate the dough an eighth of a turn, return to 12 and repeat until the dough matches the size of the screen." },
       { t: "Do the light test", d: "Hold the dough up to the light over the screen. Some light around the edge is fine. There should be no light coming through the center." },
-      { t: "Sauce edge to edge", d: "Portion the sauce and spread it with the spoodle in a spiral, out to where the rim begins. Hand Tossed sauce is 3.0 oz on a 10 inch, 4.2 on a 12, 6.0 on a 14 and 8.0 on a 16." },
+      { t: "Sauce to 3/4 inch from the edge", d: "Portion the sauce and spread it with the spoodle in a spiral, stopping about 3/4 inch (1.9 cm) from the edge on Hand Tossed. Hand Tossed sauce is 3.0 oz on a 10 inch, 4.2 on a 12, 6.0 on a 14 and 8.0 on a 16." },
       { t: "Cheese to the edge", d: "Regular cheese with toppings is 3.5, 5.0, 7.0 and 9.0 oz for 10, 12, 14 and 16 inch. Extra cheese is a second layer on top: add 1.5, 2.5, 3.5 or 4.5 oz." },
       { t: "Toppings to the edge", d: "Use the topping portion card for the size, spread them evenly and go all the way to the cheese line, not just the middle. Cheese-only pizzas take a bigger cheese portion: 5.0, 7.5, 10.5 and 13.5 oz." },
-      { t: "Oven, then finish", d: "Garlic oil goes on Hand Tossed after the bake: 0.3 oz on 8 and 10 inch, 0.4 on 12, 0.5 on 14 and 16. Then cut and box." },
+      { t: "Oven, then finish", d: "Take the pizza out of the oven only once it has completely exited the oven chamber. Garlic oil goes on the crown of the crust on Hand Tossed after the bake, from a squeeze bottle with the tip cut halfway down the nozzle: 0.3 oz on 8 and 10 inch, 0.4 on 12, 0.5 on 14 and 16. Then cut and box." },
     ],
     best: [
       "Build the same pizza the same way every time. Weighing the first few builds of a shift keeps your hands calibrated.",
@@ -1995,6 +1995,8 @@ const LIBRARY_TOPICS = [
     ],
     mistakes: [
       "Stretching the center. Thin centers make excess grease and a floppy pizza.",
+      "Cleaning cheese off the crust. Spread it evenly over the edge of the pizza and leave it.",
+      "Loading all the toppings in the center. Spread them evenly to prevent center loading.",
       "Using the palm or heel of the hand to flatten the dough.",
       "Leaving a bare ring of crust with no sauce or cheese, or sauce so close to the lip that it scorches.",
       "Dumping all the cheese in the middle so the edge is bare.",
@@ -2042,7 +2044,7 @@ const LIBRARY_TOPICS = [
     summary: "Stretch a size up, thin enough to see light, half the cheese plus provolone.",
     steps: [
       { t: "Pick the right dough", d: "New York Style uses a smaller dough stretched larger. A 10 inch dough becomes a 12 inch NY, a 12 inch dough becomes a 14 inch, and a 14 inch dough becomes a 16 inch." },
-      { t: "Rim and stretch", d: "Form a fingertip rim of about 3/4 inch, then stretch with one hand while the other anchors. It should be thin enough to see light through." },
+      { t: "Rim and stretch", d: "Form the edge and stretch with the same six finger technique as Hand Tossed, with one hand anchoring while the other stretches. It should be thin enough to see light through." },
       { t: "Sauce", d: "4.2 oz on a 12 inch, 6.0 on a 14 and 8.0 on a 16." },
       { t: "Pizza cheese", d: "2.5 oz on a 12 inch, 3.5 on a 14 and 4.5 on a 16. That is half the standard cheese portion." },
       { t: "Don't forget the provolone", d: "Shredded provolone is 3.0 oz on a 12 inch, 4.0 on a 14 and 5.5 on a 16." },
@@ -2147,13 +2149,69 @@ const LIBRARY_TOPICS = [
     ],
   },
   {
+    key: "dough", group: "Run the line", icon: "🥖", title: "Dough: Receiving, Proofing and Storage", audience: "Aspiring managers",
+    summary: "How dough should arrive, be stored and be used, so every stretch starts right.",
+    steps: [
+      { t: "Check it at the door", d: "Dough arrives from the Supply Chain Center in trays, and the temperature on arrival should be between 33 and 38 degrees F. The tray label shows the size and type, the expiration date and the proofing timeline." },
+      { t: "Read the label codes", d: "Hand Tossed sizes are XS (8 inch), SM (10), MD (12), LG (14) and XL (16). BP is the 12 inch Buttery Pan dough, and WB, WL and WX are the 16, 19 and 22 ounce wheat doughs. A tray holds 12 of the 8 inch, 10 of the 10 inch, 8 of the 12 inch or BP, 6 of the 14 inch and 5 of the 16 inch." },
+      { t: "Store it right", d: "Keep dough in the walk-in at 33 to 38 degrees F, ideally 35, in the section furthest from the door. Leave a 3 inch gap between trays and the walls. On a fixed rack, trays must be at least 6 inches off the floor, and at least 4 inches on a dolly. Always put one clean, sanitized empty tray over the dough so it does not dry out." },
+      { t: "Follow the proof and usable timeline", d: "Day 1 is the first day the dough may be used. For Hand Tossed the proof time is 5 hours on day 1, then 4, 3, 2 and 1 hour on days 2 to 5, and 0 on day 6. The usable time is 4, 4, 3, 2 and 1 hour for days 1 to 5, and 1 hour on day 6. Buttery Pan and wheat dough have their own timelines on the tray label." },
+      { t: "Rotate", d: "Keep an identification system for all sizes of next-in-use dough so the oldest goes first." },
+    ],
+    best: [
+      "Check the dough temperature when it arrives and write it down, every delivery.",
+      "Pull only what you can use in the usable window, then go back for more.",
+      "Dough that is too cold or too warm stretches poorly. Fix the cooler or tell your supervisor before blaming the stretch.",
+    ],
+    mistakes: [
+      "Storing dough right next to the door where the temperature swings.",
+      "Stacking trays against the wall with no air gap.",
+      "Using dough past its usable window.",
+    ],
+    check: [
+      { q: "What temperature should dough be on arrival and in the walk-in?", a: "33 to 38 degrees F, ideally 35 in the walk-in." },
+      { q: "What does the tray label tell you?", a: "Size and type, expiration date, and the proof and usable timeline." },
+      { q: "How far off the floor must trays be on a fixed rack?", a: "At least 6 inches (4 inches on a dolly)." },
+      { q: "Why put an empty tray on top of the dough?", a: "To keep it from drying out." },
+    ],
+    note: "From the Product Standards (November 2026). The label on the tray always wins over this summary.",
+  },
+  {
+    key: "great", group: "Finish and quality", icon: "✅", title: "What a Great Hand Tossed Looks Like", audience: "Everyone",
+    summary: "The end bake checklist you can use to grade your own pizza before it goes out.",
+    steps: [
+      { t: "Rim", d: "Rim width and height should be about 3/4 inch. The acceptable range for each is 1/2 to 1 inch." },
+      { t: "Center rise", d: "Center rise should be about 1/2 inch, with an acceptable range of 3/8 to 5/8 inch." },
+      { t: "Fit in the box", d: "The pizza cannot be more than 3/4 inch smaller than the inside of the box, or bigger than the inside of the box." },
+      { t: "Cheese and portioning", d: "Cheese is properly melted and the pizza is correctly portioned." },
+      { t: "Toppings", d: "Toppings are evenly distributed and are not dislodged after the cut." },
+      { t: "Color and crumb", d: "Golden brown on both top and bottom, with a light and airy crumb structure." },
+      { t: "Bubbles", d: "Bubbles should not exceed about 1 3/4 inches across and 7/8 inch tall." },
+    ],
+    best: [
+      "Grade one pizza out loud with your trainer using this list. Then do it silently on every tenth pizza.",
+      "A bad characteristic usually has one root cause: dough temperature, stretch, portion, or oven. Find the cause, not the culprit.",
+    ],
+    mistakes: [
+      "Only looking at the top of the pizza. The bottom color counts.",
+      "Boxing a pizza that is clearly the wrong size for the box.",
+    ],
+    check: [
+      { q: "What is the acceptable range for rim width?", a: "1/2 to 1 inch." },
+      { q: "What color should the pizza be?", a: "Golden brown, top and bottom." },
+      { q: "How big can bubbles get?", a: "No more than about 1 3/4 inches across and 7/8 inch tall." },
+    ],
+    note: "From the Hand Tossed end bake criteria in the Product Standards (November 2026).",
+  },
+  {
     key: "cut", group: "Finish and quality", icon: "🔪", title: "Cut, Garlic Oil and Boxing", audience: "Everyone",
     summary: "Right cut pattern, right oil, right box. This is the last thing the customer sees.",
     steps: [
-      { t: "Pick the cut pattern", d: "The cut guide groups 10 inch Hand Tossed, Gluten Free and New York Style together as a six slice cut. 12, 14 and 16 inch Hand Tossed, Pan and Stuffed Crust are cut in eight slices. Thin Crust is a square cut across a grid. Follow the cut guide for the exact blade pattern for each." },
-      { t: "Apply garlic oil to the right pizzas", d: "Garlic oil goes on Hand Tossed only: 0.3 oz on 8 and 10 inch, 0.4 on 12, 0.5 on 14 and 16, and 0.4 on 12 inch Stuffed Crust. None on Pan, Thin Crust, Gluten Free or New York Style." },
+      { t: "Pick the cut pattern", d: "The Hand Tossed standard is 4 slices on an 8 inch, 6 on a 10 inch, and 8 slices on 12, 14 and 16 inch. The cut guide groups Gluten Free and New York Style with the 10 inch pattern, and Pan and Stuffed Crust with the 12 to 16 inch pattern. Thin Crust is a square cut across a grid. Follow the cut guide for the exact blade pattern." },
+      { t: "Apply garlic oil to the right pizzas", d: "Garlic oil goes on the crown of the crust on Hand Tossed, including Hand Tossed specialty pizzas: 0.3 oz on 8 and 10 inch, 0.4 on 12, 0.5 on 14 and 16, and 0.4 on 12 inch Stuffed Crust. None on Pan, Thin Crust, Gluten Free or New York Style." },
       { t: "Parmesan on Stuffed Crust", d: "Parmesan shake-on for Stuffed Crust is 0.25 oz." },
       { t: "Choose the box", d: "10 inch Hand Tossed and Gluten Free go in a 10 inch box. 12 inch HT, Thin Crust and NY in a 12 inch box. 14 inch in a 14 inch box. 16 inch HT and NY in a 16 inch box. Pan and Stuffed Crust go in the black box. For Pan only, add a 9 by 9 inch liner." },
+      { t: "Keep it hot", d: "Cut, box, and place the pizza in an approved warming unit, hot bag or on an approved warming rack." },
       { t: "Double check against the ticket", d: "Before it leaves the makeline or the cut table, compare the pizza to the ticket: size, crust, toppings, notes." },
     ],
     best: [
@@ -2202,6 +2260,7 @@ const LIBRARY_TOPICS = [
     key: "oven", group: "Finish and quality", icon: "🔥", title: "Oven Basics", audience: "Aspiring managers",
     summary: "What a healthy oven looks like and what to check before blaming the pizza.",
     steps: [
+      { t: "Know the standard", d: "A store must have at least two working, approved ovens, set up with the specified finger arrangement and the specified bake times, and calibrated using the Oven Calibration Guide so pizzas meet every end bake characteristic. Each approved oven model has a minimum belt speed and a recommended temperature range in the Approved Oven Guidelines, so ask your manager for your model's numbers." },
       { t: "Know your decks", d: "Count the ovens and treat each deck as its own. Settings and results can differ between decks." },
       { t: "Check belt speed", d: "Stack two pizza disks and time them through. Start when the back of the disks enters the bake chamber and stop when the back exits. Compare to the standard for that oven and record any deck that is off." },
       { t: "Check the fingers", d: "Look up and down into the oven from the side window and compare the finger arrangement to the oven finger guide. Clogged or covered holes and debris change how the pizza bakes." },
