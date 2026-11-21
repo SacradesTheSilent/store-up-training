@@ -21,7 +21,7 @@
 <div id="root"></div>
 
 <script type="text/babel" data-presets="react">
-const { useState, useEffect, useRef, useCallback } = React;
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
 const LIGHT_THEME = {
   bg: "#E3E6E8",
@@ -779,6 +779,7 @@ function certModeLabel(mode) {
   if (mode === "newhire") return "New Hire";
   if (mode === "csr") return "CSR";
   if (mode === "onboarding") return "Day 1 Onboarding";
+  if (mode === "mit1") return "MIT Level 1";
   if (mode === "sweetheat") return "Sweet Heat Smokehouse";
   return "Certification";
 }
@@ -960,7 +961,7 @@ function DashCard({ onClick, icon, iconBg, title, desc, badge, badgeKind, locked
   );
 }
 
-function Dashboard({ studyGuideViewed, newHirePassed, isDark, onToggleDark, onStartStudy, onStartNewHire, onOpenCSRPath, onStartEndless, showSweetHeat, onOpenSweetHeat, resumeState, onResume, onDiscardResume }) {
+function Dashboard({ studyGuideViewed, newHirePassed, isDark, onToggleDark, onStartStudy, onStartNewHire, onOpenCSRPath, onStartEndless, showSweetHeat, onOpenSweetHeat, onOpenMit, resumeState, onResume, onDiscardResume }) {
   return (
     <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg, fontFamily: C.bodyFont }}>
       <div style={{ maxWidth: 512, margin: "0 auto" }}>
@@ -1000,7 +1001,7 @@ function Dashboard({ studyGuideViewed, newHirePassed, isDark, onToggleDark, onSt
         ) : (
           <DashCard locked icon="🏆" title="CSR Certification" desc="Pass New Hire Certification to unlock" />
         )}
-        <DashCard locked icon="🏆" title="Manager Checklist" desc="Coming soon" />
+        <DashCard onClick={onOpenMit} icon="📋" iconBg={C.blue} title="Manager in Training — Level 1" desc="Trainer-led walkthrough, sign-offs & knowledge test" />
         <p style={{ color: C.textFaint, fontSize: 12, textAlign: "center", marginTop: 8 }}>Progress is saved on this device only.</p>
       </div>
     </div>
@@ -1898,12 +1899,12 @@ function Results({ results, mode, onRestart, onPass, onRetryMissed }) {
   const total = results.length;
   const correct = results.filter((r) => r.correct).length;
   const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
-  const isCertMode = mode === "newhire" || mode === "csr" || mode === "onboarding" || mode === "sweetheat";
+  const isCertMode = mode === "newhire" || mode === "csr" || mode === "onboarding" || mode === "sweetheat" || mode === "mit1";
   const pass = isCertMode ? pct >= 90 : mode === "retry" ? pct === 100 : true;
   const missed = results.filter((r) => !r.correct && r.question);
 
   useEffect(() => {
-    if ((mode === "newhire" || mode === "onboarding") && pass && onPass) onPass();
+    if ((mode === "newhire" || mode === "onboarding" || mode === "mit1") && pass && onPass) onPass();
   }, [mode, pass, onPass]);
 
   const title = mode === "retry"
@@ -1941,7 +1942,7 @@ function Results({ results, mode, onRestart, onPass, onRetryMissed }) {
         )}
 
         <button onClick={onRestart} style={{ width: "100%", background: C.blue, color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 4, border: "none", cursor: "pointer", fontSize: 16 }}>
-          {mode === "onboarding" ? "Back to CSR Path" : "Back to Dashboard"}
+          {mode === "onboarding" ? "Back to CSR Path" : mode === "mit1" ? "Back to MIT Level 1" : "Back to Dashboard"}
         </button>
       </div>
     </div>
@@ -1990,6 +1991,8 @@ function App() {
   const [pendingStartFn, setPendingStartFn] = useState(null);
   const [resumeState, setResumeStateVal] = useState(() => loadResumeState());
   const [hubModule, setHubModule] = useState(null);
+  const [mit, setMit] = useState(() => loadMit());
+  const [mitSectionKey, setMitSectionKey] = useState(null);
   const [preTimerWarningScreen, setPreTimerWarningScreen] = useState("dashboard");
 
   applyTheme(isDark);
@@ -2006,6 +2009,15 @@ function App() {
       return next;
     });
   }, []);
+
+  const updateMit = (fn) => setMit((prev) => { const next = fn(prev); saveMit(next); return next; });
+  const addTrainee = (name) => updateMit((m) => { const id = "t" + Date.now(); return { trainees: [...m.trainees, { id, name, items: {}, quiz: {}, testPassed: false }], activeId: id }; });
+  const selectTrainee = (id) => updateMit((m) => ({ ...m, activeId: id }));
+  const removeTrainee = (id) => updateMit((m) => { const trainees = m.trainees.filter((t) => t.id !== id); return { trainees, activeId: trainees.length ? trainees[0].id : null }; });
+  const toggleMitItem = (itemId, key) => updateMit((m) => ({ ...m, trainees: m.trainees.map((t) => { if (t.id !== m.activeId) return t; const cur = (t.items && t.items[itemId]) || {}; return { ...t, items: { ...t.items, [itemId]: { ...cur, [key]: !cur[key] } } }; }) }));
+  const setMitQuiz = (sectionKey, pct) => updateMit((m) => ({ ...m, trainees: m.trainees.map((t) => t.id === m.activeId ? { ...t, quiz: { ...t.quiz, [sectionKey]: pct } } : t) }));
+  const markMitPassed = useCallback(() => updateMit((m) => ({ ...m, trainees: m.trainees.map((t) => t.id === m.activeId ? { ...t, testPassed: true } : t) })), []);
+  const activeTrainee = mit.trainees.find((t) => t.id === mit.activeId) || null;
 
   const newHirePassed = !!progress.newHirePassed;
   const onboardingPassed = !!progress.onboardingPassed;
@@ -2038,6 +2050,8 @@ function App() {
   };
   const startOnboarding = () => beginCert("onboarding", generateDay1OnboardingCert());
   const startSweetHeat = () => beginCert("sweetheat", generateSweetHeatCert());
+  const startMit = () => { if (!mitAllSigned(activeTrainee)) return; beginCert("mit1", generateMitLevel1Cert()); };
+  const openMit = () => setScreen("mithub");
 
   const openOnboarding = () => { setHubModule("onboarding"); setScreen("modulehub"); };
   const openSweetHeat = () => { setHubModule("sweetheat"); setScreen("modulehub"); };
@@ -2088,7 +2102,7 @@ function App() {
     setResumeStateVal(null);
   };
 
-  const isResumableCert = mode === "newhire" || mode === "csr" || mode === "onboarding" || mode === "sweetheat";
+  const isResumableCert = mode === "newhire" || mode === "csr" || mode === "onboarding" || mode === "sweetheat" || mode === "mit1";
   const fixedQuestions = isResumableCert || mode === "retry" ? certQuestions : null;
   const currentQuestion = fixedQuestions ? fixedQuestions[qIndex] : endlessQueue[qIndex];
 
@@ -2118,7 +2132,8 @@ function App() {
   const onPass = useCallback(() => {
     if (mode === "newhire") markProgress("newHirePassed");
     if (mode === "onboarding") markProgress("onboardingPassed");
-  }, [mode, markProgress]);
+    if (mode === "mit1") markMitPassed();
+  }, [mode, markProgress, markMitPassed]);
 
   const correctCount = results.filter((r) => r.correct).length;
   const wrongCount = results.length - correctCount;
@@ -2132,6 +2147,8 @@ function App() {
     (screen === "modulehub" && !!hubModule) ||
     screen === "onboardingstudy" ||
     screen === "sweetheatstudy" ||
+    screen === "mithub" ||
+    (screen === "mitsection" && !!mitSectionKey && !!activeTrainee) ||
     screen === "timerwarning" ||
     (screen === "quiz" && !!currentQuestion) ||
     screen === "results";
@@ -2150,6 +2167,7 @@ function App() {
           onStartEndless={guardedStart(startEndless)}
           showSweetHeat={sweetHeatActive}
           onOpenSweetHeat={openSweetHeat}
+          onOpenMit={openMit}
           resumeState={resumeState}
           onResume={resumeCert}
           onDiscardResume={discardResume}
@@ -2179,6 +2197,27 @@ function App() {
       {screen === "sweetheatstudy" && (
         <StudyGuide cards={SWEET_HEAT_STUDY_CARDS} accent={C.red} onFinish={() => finishModuleStudy("sweetHeatStudyViewed")} onExit={() => setScreen("modulehub")} />
       )}
+      {screen === "mithub" && (
+        <MitHub
+          mit={mit}
+          onAddTrainee={addTrainee}
+          onSelectTrainee={selectTrainee}
+          onRemoveTrainee={removeTrainee}
+          onOpenSection={(k) => { setMitSectionKey(k); setScreen("mitsection"); }}
+          onTest={guardedStart(startMit)}
+          onBack={() => setScreen("dashboard")}
+        />
+      )}
+      {screen === "mitsection" && mitSectionKey && activeTrainee && (
+        <MitSection
+          key={mitSectionKey + activeTrainee.id}
+          section={MIT_SECTIONS.find((x) => x.key === mitSectionKey)}
+          trainee={activeTrainee}
+          onToggle={toggleMitItem}
+          onQuizDone={setMitQuiz}
+          onBack={() => setScreen("mithub")}
+        />
+      )}
       {screen === "timerwarning" && (
         <TimerWarningScreen onContinue={acknowledgeTimerWarning} onBack={() => { setPendingStartFn(null); setScreen(preTimerWarningScreen); }} />
       )}
@@ -2191,12 +2230,470 @@ function App() {
         <Results
           results={results}
           mode={mode}
-          onRestart={() => setScreen(mode === "onboarding" ? "csrhub" : "dashboard")}
+          onRestart={() => setScreen(mode === "onboarding" ? "csrhub" : mode === "mit1" ? "mithub" : "dashboard")}
           onPass={onPass}
           onRetryMissed={startRetry}
         />
       )}
       {!known && <BrokenStateScreen onHome={() => setScreen("dashboard")} />}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// MANAGER IN TRAINING — LEVEL 1. Hand-held trainer walkthrough built from the
+// MIT Level 1 Evaluation sheet, the Level 1 Evaluation Guide and the Opening /
+// Closing checklists. Each evaluation item gets a "what good looks like" card,
+// a trainer demo prompt where the answer is store-specific, and TS / GM
+// sign-off toggles (same two columns as the paper sheet). Sign-offs live on the
+// device the trainer is holding — no accounts. The PULSE login on the paper
+// sheet is deliberately NOT stored here because this page is public.
+// ---------------------------------------------------------------------------
+const MIT_KEY = "storeup-mit";
+function loadMit() {
+  try { const raw = localStorage.getItem(MIT_KEY); const v = raw ? JSON.parse(raw) : null; return v && v.trainees ? v : { trainees: [], activeId: null }; } catch (e) { return { trainees: [], activeId: null }; }
+}
+function saveMit(m) {
+  try { localStorage.setItem(MIT_KEY, JSON.stringify(m)); } catch (e) { /* ignore */ }
+}
+
+const MIT_SECTIONS = [
+  {
+    key: "general", title: "Image & General Knowledge", icon: "🧭",
+    intro: "Showing up right, running the shift with urgency, and knowing what to do when something breaks.",
+    items: [
+      { id: "g-image", title: "Perfect image and grooming", points: ["On time for every shift.", "Reports to work in perfect image and grooming.", "Consistently follows the grooming standards (the Day 1 Onboarding apparel card has the details)."], show: "Have the trainee check themselves against the apparel standards in a mirror before the shift, then do the image check on one crew member with you." },
+      { id: "g-callouts", title: "Handling call outs", points: ["Knows how to handle a team member call out.", "Enters every call out into the attendance tracker in Zenput.", "Uses the team member phone list and manager phone numbers to cover the shift."], show: "Walk through a real call out: where the phone list lives and exactly where the call out gets entered in Zenput." },
+      { id: "g-hta", title: "Smart hustle and HTA", points: ["Moves with a sense of urgency.", "Maintains Heightened Time Awareness (HTA) with the crew during the shift.", "Knows the HTA goals: Load time, Wait time, Club time, ADT, Extremes and Turnaround.", "Makes sure every team member uses HTA verbal communication to help adjust bottlenecks."], show: "On a live shift, call out HTA communication to the crew, then have the trainee do it the next time a bottleneck forms." },
+      { id: "g-pulse", title: "Loading PULSE", points: ["Knows how to load PULSE.", "Knows what to do if PULSE logs off.", "Knows the PULSE login. Ask your trainer for it — it is not stored in this app."], show: "Have the trainee load PULSE from scratch and recover from a log-off." },
+      { id: "g-troubleshoot", title: "Troubleshooting equipment", points: ["What to do if the lights in the store will not turn on, and how to troubleshoot it.", "Signs that the oven hood is not working, and how to troubleshoot it.", "Can reload credit card paper, receipt printer paper and expiration labels."], show: "Show the trainee the lights panel, the oven hood and the printers in your store, and have them reload each one." },
+      { id: "g-contingency", title: "Contingency plans and the contact sheet", points: ["Equipment problem: maintenance repair phone list.", "Power outage: power company phone numbers.", "Safety and security issue: management phone numbers, police numbers, security hotline number.", "Team member call out: team member phone list and manager phone numbers.", "Out of stock: local store phone numbers, management numbers, supply chain.", "Can access the store contact sheet."], show: "Have the trainee find every one of these numbers in your store without help." },
+      { id: "g-drivers", title: "Driver tips, mileage and Drivosity", points: ["Understands how driver tips and mileage work.", "Understands how Drivosity works and what the company goal is."], show: "Pull up a driver's tips and mileage and walk through how each number is figured, then show Drivosity and the goal." },
+      { id: "g-incident", title: "Accidents and incidents", points: ["Can locate the Automobile Accident worksheet.", "Can locate the First Report of Injury or Illness report and the medical waiver in Zenput.", "Knows who to notify after an accident or incident."], show: "Have the trainee find both forms in Zenput and tell you who gets the first call." },
+      { id: "g-safe", title: "Setting the safe and fixing safe problems", points: ["Knows how to set the time-delay safe.", "Knows how to troubleshoot safe issues."], show: "Have the trainee set the safe and work through the common problems you see at your store." },
+    ],
+  },
+  {
+    key: "service", title: "Customer Service", icon: "🤝",
+    intro: "Greeting fast, fixing problems at the store level, and coaching your crew to do the same.",
+    items: [
+      { id: "s-wow", title: "WOW the customer", points: ["Resolves all customer concerns using WOW at the store level.", "Uses the 3-step WOW process: 1) Apologize sincerely. 2) Give the customer what they want. 3) Give the customer something extra."], skill: { title: "Skills check — WOW role play", prompt: "A customer calls and is very angry. Their pizza arrived 30 minutes later than quoted and had the wrong toppings. What do you do?", hit: ["Apologizes sincerely", "Gives the customer what they want", "Gives the customer something extra"] } },
+      { id: "s-greet", title: "The 9-second greeting", points: ["All customers are greeted with \"Welcome to Domino's\" within 9 seconds.", "All carryout customers are greeted within 9 seconds."], show: "Stand at the front counter during a rush and have the trainee greet every customer inside 9 seconds." },
+      { id: "s-coach", title: "Coaching a team member on customer concerns", points: ["Can model and role play the right way to handle an upset customer.", "Walks team members through role plays to help them improve."], skill: { title: "Skills check — coaching role play", prompt: "Your CSR is great at answering the phone and taking orders but has a hard time with angry customers. Role play with them and explain the action steps you take to fix this performance issue.", hit: ["Models the right way to handle the call", "Role plays it with the team member", "Walks them through problem solving so they improve"] } },
+      { id: "s-tracker", title: "Negative tracker comments", points: ["Knows and demonstrates how to respond to a negative tracker comment.", "Empowers team members to resolve customer concerns.", "Researches and resolves negative tracker feedback.", "Resolves all concerns at the store level.", "Acts as a role model for great customer service."], show: "Pull up a real tracker comment, research the order together and decide how to resolve it." },
+      { id: "s-sick", title: "A customer gets sick", points: ["Knows what to do if a customer gets sick."], show: "Walk through your store's exact steps for a customer who says they got sick, including who gets notified." },
+    ],
+  },
+  {
+    key: "product", title: "Product", icon: "🍕",
+    intro: "Dating, dough, and making every pizza and side to spec — fast.",
+    items: [
+      { id: "p-dating", title: "Dating product and shelf life", points: ["Dates product properly and discards expired product. Nothing expired on their shift.", "All prepped products are labeled according to the Shelf-Life Guide.", "Checks products at the beginning of every shift to make sure everything is within useable shelf life.", "Uses First In-First Out (FIFO) storage."], show: "Do a walk-in and makeline date check together and have the trainee pull anything expired." },
+      { id: "p-forecast", title: "Prep Forecast for sides", points: ["Knows and demonstrates how to use the Prep Forecast when prepping sides.", "Sends in pictures."], show: "Run the Prep Forecast for a real prep and have the trainee prep sides from it." },
+      { id: "p-dough", title: "Dough management and proofing", points: ["Reads dough tray labels to know how long to proof and the subsequent shelf life.", "Uses the Prep sheet each day to figure out how much dough is needed.", "Projects the right amount of dough for the shift and proofs it with proper technique so it reaches the correct size and temperature before use.", "Can explain how much dough to proof and how to cross stack dough.", "Never uses expired or unusable dough (blown, under proofed, cold)."], show: "Fill out the Prep sheet together, proof the dough, and have the trainee explain cross stacking back to you." },
+      { id: "p-menu", title: "Menu knowledge and job aids", points: ["Knows the menu.", "Knows how to use the job aids."], show: "Quiz the trainee on the menu and have them find answers in the job aids." },
+      { id: "p-pizzas", title: "Pizzas made to specification", points: ["Makes all pizzas to specification.", "Can pass a cut test on 3 large pizzas.", "Can quality check and grade all pizzas to standard."], show: "Make 3 large pizzas with the trainee and cut test them together." },
+      { id: "p-sides", title: "Side items made to standard", points: ["Makes all side items to the proper portion, size and bake.", "Must demonstrate at least one of each item."], show: "Have the trainee make one of every side item on your menu." },
+      { id: "p-lowstock", title: "Getting product when low or out", points: ["Knows how to acquire product when it is low or out."], show: "Have the trainee walk through exactly who they call and what they do when you are low or out of something." },
+      { id: "p-scoresheet", title: "Product Score Sheet", points: ["Must complete the Product Score Sheet with a Trainer or Supervisor.", "Scored out of 100 — minimum of 70 to pass."], show: "Complete the Product Score Sheet together and review every point they missed." },
+      { id: "p-pep", title: "The 60-second 14\" pepperoni", points: ["Makes a \"great\" 14\" pepperoni in 60 seconds or less.", "Properly grades that pizza during a cut test, and it must meet the great standard."], show: "Time the trainee, then cut test the pizza. Write the time on the sheet." },
+    ],
+  },
+  {
+    key: "ops", title: "Operations", icon: "⚙️",
+    intro: "Paperwork, routing, deliveries, hiring and keeping the store running during the shift.",
+    items: [
+      { id: "o-ops", title: "OPS assessment", points: ["Must pass an OPS assessment by a Trainer or Supervisor with a score of 75 or higher."], show: "Schedule the OPS assessment and go over the result with the trainee." },
+      { id: "o-paperwork", title: "Daily paperwork, feedback and receipts", points: ["Can retrieve the daily paperwork and send in the daily numbers.", "Demonstrates how to retrieve feedback.", "Can print itemized receipts and receipts from previous days."], show: "Have the trainee pull and send the daily paperwork and print an itemized receipt from a previous day." },
+      { id: "o-checklists", title: "Opening and closing checklists", points: ["Uses the opening and closing checklist every shift.", "Sends in pictures."], show: "Do one opening or closing with the trainee using the checklist walkthrough at the end of this guide." },
+      { id: "o-cut", title: "Cut table and oven tending", points: ["Knowledge of proper time management on the cut table.", "Can oven tend orders accurately and properly route during the shift.", "Boxes orders correctly during the shift.", "Knows all post bake applications required."], show: "Put the trainee on the oven and cut table for a rush and review how they did." },
+      { id: "o-routing", title: "Dispatch and routing", points: ["Understands and adheres to the rules of proper routing.", "Never lets drivers route themselves — uses proper routing procedures.", "Keeps \"great\" product standards at the final quality control check point (oven tending).", "Can pre-bag and tag orders.", "Has keen knowledge of the delivery area.", "Knows driver dispatch.", "Can clock out a driver and find their mileage."], show: "Dispatch a rush together, then have the trainee dispatch and clock out a driver." },
+      { id: "o-carside", title: "Carside delivery", points: ["Knows how to perform a Carside delivery."], show: "Do a carside delivery together." },
+      { id: "o-takedeliveries", title: "Taking deliveries when needed", points: ["Must take deliveries when the store gets backed up or is short on drivers, if eligible."] },
+      { id: "o-badorders", title: "Bad Orders", points: ["Knows how to enter a Bad Order into Zenput.", "The sheet notes \"at 80% or higher\" — ask your trainer what that refers to."], show: "Enter a real Bad Order together." },
+      { id: "o-invoices", title: "Deliveries and invoices", points: ["Accurately checks in SCC (Supply Chain Center) deliveries: counts inventory against the invoice to find any discrepancies.", "Communicates any variances properly.", "Dates and puts away the SCC delivery.", "Counts Coke products against the invoice and alerts management to any discrepancies.", "Knows how to enter the invoice from SCC, Coke and other delivery transfers.", "Can put up a Commissary or Coke delivery with proper FIFO and dating of all products."], show: "Check in a real delivery with the trainee, count against the invoice and enter it." },
+      { id: "o-efo", title: "Ordering with EFO", points: ["Has placed food and Coke orders using EFO with the GM's help."], show: "Place the next food and Coke orders together in EFO." },
+      { id: "o-prep", title: "Food prep and the shelf life guide", points: ["Can prep all food items.", "Knows how to read the shelf life guide."], show: "Have the trainee prep every food item and look up each shelf life." },
+      { id: "o-clean", title: "Keeping the store clean all shift", points: ["Store cleanliness is maintained during all shifts.", "Parking lot, sidewalks, window sills and signage are clean and maintained during the shift.", "Lobby is mopped, windows, sills and light fixtures are clean.", "All areas in customer view are cleaned and organized."], show: "Do a cleanliness walk of the store and parking lot together." },
+      { id: "o-hiring", title: "Interviewing and Jobalign", points: ["Has interviewed a minimum of 2 new hire applicants, with assistance from the store manager.", "Successfully uses and fills out the interview packet for 2 applicants.", "Knows how to have an applicant apply in Jobalign.", "Knows how to send background paperwork through Jobalign to a potential new hire."], show: "Sit in on two interviews, then do the Jobalign steps with the trainee." },
+    ],
+  },
+  {
+    key: "safety", title: "Safety, Security & Sanitation", icon: "🔒",
+    intro: "Cash, deposits, robbery prevention and food safety. These are the ones that cannot be missed.",
+    items: [
+      { id: "f-callbacks", title: "Security call backs", points: ["Knows when to make security call backs and how.", "A callback is required before delivery leaves for first-time cash customers, orders with no Caller ID, and any suspicious order."], show: "Have the trainee make a security call back on a live order." },
+      { id: "f-deposit", title: "Preparing the deposit at the store", points: ["Prepare deposits in the office with the store doors locked.", "No non-team members may be in the store while the deposit is being prepared.", "Put the deposit bag in a hot bag, pizza box or plastic bag (like for two liters) — anything to disguise it.", "The first person exits while the other stays inside the locked door.", "The first person checks the area and signals the second person when it is clear."], show: "Walk through a full deposit hand-off with a second team member." },
+      { id: "f-bank", title: "At the bank", points: ["Deposits go to the bank with two team members in separate vehicles.", "Watch the area at the depository for anything suspicious.", "The escort circles the bank and signals the deposit carrier that it is safe to proceed.", "Use your headlights to illuminate the area.", "If anyone else is present, do not get out of the car until all activity is clear.", "If you see anything suspicious, leave immediately and go to a safe area.", "If you are robbed, cooperate and do not resist. Your safety comes first.", "Pick up the verification slips and attach them to the daily sign-off. Make sure all paperwork is completed and entered into PULSE.", "Knows the deposit policies and where the bank is."], show: "Drive to the bank together, show the depository and the route, and review every step." },
+      { id: "f-cash", title: "Cash handling", points: ["The time-delay safe is always used (9-minute delay).", "Max in a single till: $150. Till drawers stay locked. Never count cash in customer view.", "Enforces the $20 max on drivers for all deliveries.", "Makes sure drivers make drops after every run.", "Does random cash checks on drivers."], show: "Do a cash check on a driver and walk through a shift change with the trainee." },
+      { id: "f-sanitation", title: "Sanitation procedures", points: ["Follows the 2-hour rule, 3 compartment sink, and handwashing.", "Can properly set up the 3 compartment sink: soap, rinse, sanitize. Uses the sanitizer test strips to check PPM.", "Dishes are washed, rinsed, sanitized, dried and stored properly — stored upside down.", "Knows and demonstrates refilling soap, sanitizer and paper towels."], show: "Set up the 3 compartment sink together and read a sanitizer test strip." },
+      { id: "f-temp", title: "Temp logs", points: ["Fills out the Temp Log on every shift and initials it."], show: "Fill out a temp log together." },
+      { id: "f-carryover", title: "The carryover process", points: ["Understands the carryover process.", "Knows which color tubs the toppings go in overnight and when the makeline can be flipped.", "Knows when to switch out the carryover bins the next day.", "Black buckets are never refilled; clear can be refilled but must be dated when put into use."], show: "Show the trainee your store's carryover bins and the time you flip the makeline." },
+      { id: "f-backdoor", title: "Back door policy", points: ["Knows what the back door policy is for during the day and at night.", "Back and side doors that are not a customer entrance stay locked at all times."], show: "Explain your store's day and night back door rules." },
+      { id: "f-robbery", title: "What to do in a robbery or injury", points: ["Follows all safety and security procedures.", "Demonstrates what to do in the event of a robbery or an injury to a team member.", "Needs to know the store's procedures and steps for a robbery or injury."], skill: { title: "Skills check — robbery prevention", prompt: "The store you work in was robbed of $500 last week from the front till. What precautions do you implement on your shift to help prevent this from happening again? What other robbery prevention steps should always be in place?", hit: ["Time-delay safe is in use", "Till maximum is enforced", "Not counting money in plain view", "Eye contact with all customers", "Proper deposit procedures"] } },
+    ],
+  },
+  {
+    key: "checklists", title: "Opening & Closing Checklists", icon: "📋",
+    intro: "Walk the real opening and closing checklists with the trainee, one block at a time. Manager tasks on the left, team member tasks on the right.",
+    items: [
+      { id: "c-open-1", title: "Opening — Prior to Open", points: ["Do a security check upon arrival.", "Turn on lights.", "Set up front counter computers and clock in.", "Turn on the makeline and cheese station.", "Set up makeline monitors and check for timed orders.", "Set the time delay safe.", "Bring thin crust and pizza sauce out to room temp.", "Check for proofed dough and bring it out to room temp.", "Set up the makeline rail and stock cabinets.", "Double check for expired products and remove anything expired (Coke products expire on a Monday).", "Put scales on the makeline.", "Count the money and make driver banks.", "Set the cash till to no more than the till max ($150).", "Print the Prep Forecast Report.", "Pull up the Prep Report and see how much dough is needed.", "Fill out the Prep List for today.", "Turn on the oven and heat racks.", "Place 2 thermometers in the rail.", "Check in the Commissary delivery, date, rotate and put it up.", "Ensure all equipment is working properly."], tm: ["Clock in (ensure perfect image).", "Log in to the Driver App.", "Make a fresh sauce tub and 2 sauce bottles.", "Clean the parking lot and sidewalk of any trash.", "Clean windows and sills inside and out.", "Clean the carryout area (chairs, tables, refill napkins).", "Set up the 3 comp sink and make new sanitizer buckets and/or bottles.", "Check the store for cleanliness.", "Double check for expired products.", "Assist with prep for today's business.", "Check that hot bags are clean and in good repair."], show: "Run this block as the opener with the trainee shadowing, then swap." },
+      { id: "c-open-2", title: "Opening — Pre-Lunch", points: ["Turn on the Open sign.", "Verify phones and internet are working.", "Verify makeline rail, cabinet, reach-in and walk-in are at proper temp.", "Fill out the Temp Log.", "Bring up clean bins for carryover and pre date them.", "If necessary, proof dough for today. Cross stack at room temp.", "Review WTD results and anything that needs improvement.", "Verify all team members are in perfect image, including vehicles.", "Check the schedule for adequate staffing and assign daily cleaning tasks.", "Prep pans, twists and bites for lunch (next 4 hours).", "Do a cheese count to verify closing numbers.", "Check all product levels and call other stores if needed.", "Place the Coke order as needed or put away the Coke delivery."], tm: ["Turn on the Open sign.", "Ensure you are not carrying more than $20.", "Check and restock all hand washing stations: soap and paper towels.", "Put away all clean, dry dishes from closing.", "Assist with prep for today's business.", "Stock the Coke cooler. Rotate oldest to the front."] },
+      { id: "c-open-3", title: "Opening — After Lunch", points: ["Restock the makeline rail and cabinet for the dinner rush.", "Review the day's lunch rush results.", "Check PWR for any Customer Care cases and take care of them.", "Call any new applicants and set up interviews.", "Check any backgrounds you may have running. If good, send the new hire paperwork.", "Complete remaining prep.", "Around 3:00, start prepping sides for the dinner rush."], tm: ["Sweep the walk-in floor.", "Wash any dirty dishes, including pans.", "Box top boxes.", "Restock the boxes at the cut table.", "Complete any cleaning duties.", "Set up the 3 comp sink with fresh water and ensure 2-hour sanitation.", "Continue assisting with prep.", "At 3:00, prep sauce tubs and bottles for the dinner rush."] },
+      { id: "c-open-4", title: "Opening — Manager Overlap", points: ["Check the schedule and call in drivers if needed.", "Set the time delay safe.", "Do the shift change (money and cheese) and record it in Zenput.", "Reset the cash till to no more than the till max.", "Fill out the Temp Log."], tm: ["Finish anything above that you were not able to finish.", "Collect cash and receipts if not staying through the rush.", "Return the Cartop sign."] },
+      { id: "c-close-1", title: "Closing — Arriving on shift and manager overlap", points: ["Follow up on any guests in the lobby.", "Clock in.", "Greet all team members while performing the image check.", "Check the schedule and call in drivers if needed.", "Ensure the time delay safe is set.", "Do the shift change (money and cheese) and record it in Zenput.", "Reset the cash till to no more than the till max.", "Fill out the Temp Log.", "Ensure PRP is completed and dough is proofed.", "Discuss any critical information with the outgoing manager.", "Verify that the Opening Checklist has been completed."], tm: ["Clock in (ensure proper image).", "Log in to the Driver App.", "Clean the parking lot and sidewalk of any litter.", "Clean and wipe down the carry-out area (refill napkins).", "Rush drivers clean 2 hot bags each.", "Ensure the 2-hour sanitation rule is in place.", "Assist with prep for business needs."] },
+      { id: "c-close-2", title: "Closing — Pre-Close (1 to 1.5 hours to close)", points: ["Follow all safety and security procedures.", "Fill out the Temp Log.", "Make sure the back door is locked.", "Flip the makeline into carryover bins.", "The makeline stays fully operational until close.", "Ensure adequate proofed dough for lunch tomorrow.", "Count inventory in the backroom, Coke cooler and walk-in.", "Check for any products that expire at the end of the day.", "30 minutes before close: count inventory at the makeline and cut table."], tm: ["Complete daily cleaning duties: dishes, trash, etc.", "Clean the front counter and driver station.", "Clean the outside of the oven and catch trays.", "Clean and restock the bathroom and office area.", "Set up the 3 comp sink with fresh water and sanitizer.", "Wash available dishes and place them to air dry."] },
+      { id: "c-close-3", title: "Closing — At Close", points: ["Close and lock all doors and windows.", "Double check any inventory variances and post in the group chat.", "Put all food in the walk-in.", "Turn off, clean and sanitize the makeline, scales, thermometers, season bottles and bump bars.", "Set the time delay safe.", "Count the till.", "Make the deposit and record it in PULSE.", "Ensure the safe is secured with all money in the time delay part.", "Complete the final walk through.", "Run end of day.", "Clock out.", "Turn off the lights.", "Ensure all doors and windows are secure and locked."], tm: ["Collect cash and receipts.", "Return the cartop sign.", "Wash all makeline rails and catch trays, dry and put back.", "All surfaces clean and sanitized: makeline, cheese station, cut table and reach-in.", "Wash all remaining dishes and place to dry.", "3 comp sink cleaned and sanitized.", "All floors swept and mopped, including the walk-in.", "Mop sink, bucket and mops cleaned and drying.", "Bring the cutter, spoodles, peel and dough scraper back up front.", "Complete the final walk through with the MIC.", "Clock out.", "Ensure team members get to their cars safely."] },
+    ],
+  },
+];
+
+const MIT_QUIZ = {
+  general: [
+    { prompt: "Which of these is NOT one of the HTA goals?", answer: "Tip average", choices: ["Load time", "Wait time", "Club time", "Tip average"], why: "The HTA goals are Load time, Wait time, Club time, ADT, Extremes and Turnaround." },
+    { prompt: "Where does a team member call out get entered?", answer: "The attendance tracker in Zenput", choices: ["The attendance tracker in Zenput", "The Temp Log", "PULSE", "The group chat only"], why: "Every call out goes into the attendance tracker in Zenput." },
+    { prompt: "Where do you find the First Report of Injury or Illness and the medical waiver?", answer: "Zenput", choices: ["Zenput", "PULSE", "The Temp Log", "The Prep sheet"], why: "Both live in Zenput." },
+    { prompt: "The power goes out. Which contact is on your contingency plan for that?", answer: "The power company phone numbers", choices: ["The power company phone numbers", "The maintenance repair phone list", "The supply chain numbers", "The security hotline"], why: "Power outage: power company numbers. Equipment: maintenance repair list. Out of stock: other stores, management, supply chain." },
+    { prompt: "A piece of equipment breaks. Which list do you use?", answer: "The maintenance repair phone list", choices: ["The maintenance repair phone list", "The team member phone list", "The power company numbers", "The police numbers"], why: "Equipment problems use the maintenance repair phone list." },
+    { prompt: "You are out of a product. Who is on your contingency list for that?", answer: "Local stores, management and supply chain", choices: ["Local stores, management and supply chain", "The power company", "The security hotline", "The maintenance repair list"], why: "Out of stock: local store phone numbers, management numbers and supply chain." },
+  ],
+  service: [
+    { prompt: "What are the 3 steps to WOW a customer, in order?", answer: "Apologize sincerely, give them what they want, give them something extra", choices: ["Apologize sincerely, give them what they want, give them something extra", "Give them something extra, apologize, give them what they want", "Give them a coupon, apologize, call the owner", "Give them what they want, give them a coupon, apologize"], why: "1) Apologize sincerely. 2) Give the customer what they want. 3) Give the customer something extra." },
+    { prompt: "Within how many seconds are customers greeted with \"Welcome to Domino's\"?", answer: "9", choices: ["5", "9", "15", "30"], why: "Customers are greeted within 9 seconds." },
+    { prompt: "Carryout customers are greeted within:", answer: "9 seconds", choices: ["3 seconds", "9 seconds", "30 seconds", "1 minute"], why: "All carryout customers are greeted in 9 seconds." },
+    { prompt: "A negative tracker comment comes in. What do you do?", answer: "Research it and resolve it at the store level", choices: ["Research it and resolve it at the store level", "Ignore it", "Send it to the owner", "Wait for the customer to call"], why: "Research and resolve negative tracker feedback, and resolve all concerns at the store level." },
+    { prompt: "Who should be empowered to resolve customer concerns?", answer: "Team members", choices: ["Only the owner", "Team members", "Only the GM", "Nobody, they escalate it"], why: "A Level 1 MIT empowers team members to resolve customer concerns." },
+  ],
+  product: [
+    { prompt: "A cut test is passed on how many large pizzas?", answer: "3", choices: ["1", "2", "3", "5"], why: "The ability to pass a cut test on 3 large pizzas." },
+    { prompt: "You need to make a great 14\" pepperoni in:", answer: "60 seconds", choices: ["30 seconds", "60 seconds", "90 seconds", "2 minutes"], why: "A great 14\" pepperoni in 60 seconds or less, then graded in a cut test." },
+    { prompt: "What is the minimum score to pass the Product Score Sheet?", answer: "70 out of 100", choices: ["60 out of 100", "70 out of 100", "75 out of 100", "90 out of 100"], why: "Minimum of 70 to pass (the OPS assessment is a separate 75)." },
+    { prompt: "Prepped products are labeled according to:", answer: "The Shelf-Life Guide", choices: ["The Shelf-Life Guide", "The Prep sheet", "The Temp Log", "Whatever the last person did"], why: "All prepped products are labeled according to the Shelf-Life Guide." },
+    { prompt: "Which dough can NOT be used?", answer: "Blown, under proofed or cold dough", choices: ["Blown, under proofed or cold dough", "Dough that is cross stacked", "Dough that was proofed at room temp", "Dough read from a tray label"], why: "Never use expired or unusable dough: blown, under proofed, cold." },
+    { prompt: "What do the dough tray labels tell you?", answer: "How long to proof and the subsequent shelf life", choices: ["How long to proof and the subsequent shelf life", "How much dough to prep today", "Who made the dough", "The delivery time"], why: "Tray labels tell you how long to proof and the subsequent shelf life. The Prep sheet tells you how much dough is needed." },
+    { prompt: "Which tool tells you how much dough is needed each day?", answer: "The Prep sheet", choices: ["The Prep sheet", "The tray label", "The Temp Log", "The shelf life guide"], why: "Use the Prep sheet to determine how much dough is needed each day." },
+    { prompt: "For side items, how many must you demonstrate?", answer: "At least one of each item", choices: ["Just one side", "At least one of each item", "Three of each item", "Only the most popular"], why: "Must demonstrate at least one of each item." },
+  ],
+  ops: [
+    { prompt: "What score must you get on the OPS assessment?", answer: "75 or higher", choices: ["60 or higher", "70 or higher", "75 or higher", "90 or higher"], why: "Pass an OPS assessment by a Trainer or Supervisor with a score of 75 or higher." },
+    { prompt: "Who is allowed to route a driver?", answer: "The manager, using proper routing procedures — drivers never route themselves", choices: ["The driver, whenever they want", "The manager, using proper routing procedures — drivers never route themselves", "The customer", "Whoever is closest to the door"], why: "Do not allow drivers to route themselves." },
+    { prompt: "When you check in an SCC delivery you:", answer: "Count inventory against the invoice to find any discrepancies", choices: ["Count inventory against the invoice to find any discrepancies", "Sign it and put it away", "Wait until tomorrow to count it", "Only count the Coke"], why: "Count against the invoice, communicate variances, then date and put it away." },
+    { prompt: "A Coke delivery does not match the invoice. You:", answer: "Alert management to the discrepancy", choices: ["Alert management to the discrepancy", "Ignore it", "Fix the invoice yourself", "Refuse all future Coke deliveries"], why: "Count Coke products against the invoice and alert management to any discrepancies." },
+    { prompt: "How many new hire applicants must a Level 1 MIT interview at minimum?", answer: "2", choices: ["1", "2", "5", "10"], why: "Has interviewed a minimum of 2 new hire applicants, with assistance from the store manager." },
+    { prompt: "Where do applicants apply and get background paperwork sent?", answer: "Jobalign", choices: ["Jobalign", "Zenput", "PULSE", "EFO"], why: "Applicants apply in Jobalign, and background paperwork is sent through Jobalign." },
+    { prompt: "Where is a Bad Order entered?", answer: "Zenput", choices: ["Zenput", "PULSE", "EFO", "The Temp Log"], why: "Knows how to enter Bad Orders into Zenput." },
+    { prompt: "Which system do you use to place food and Coke orders?", answer: "EFO", choices: ["EFO", "Jobalign", "Zenput", "Drivosity"], why: "Food and Coke orders are placed using EFO, with the GM's help." },
+  ],
+  safety: [
+    { prompt: "Which order needs a security callback before delivery leaves?", answer: "A first-time cash customer", choices: ["A repeat card customer", "A first-time cash customer", "Any order over $20", "Any carryout order"], why: "Callbacks are required for first-time cash customers, orders with no Caller ID, and any suspicious order." },
+    { prompt: "How are deposits taken to the bank?", answer: "By two team members in separate vehicles", choices: ["By one team member", "By two team members in the same vehicle", "By two team members in separate vehicles", "By the driver on the last run"], why: "Two team members, separate vehicles." },
+    { prompt: "At the depository, what does the escort do?", answer: "Circles the bank and signals the carrier that it is safe to proceed", choices: ["Waits in the parking lot", "Circles the bank and signals the carrier that it is safe to proceed", "Goes inside with the carrier", "Turns off their headlights"], why: "The escort circles the bank and signals the deposit carrier it is safe, using headlights to illuminate the area." },
+    { prompt: "You see something suspicious at the bank. You:", answer: "Leave immediately and go to a safe area", choices: ["Leave immediately and go to a safe area", "Get out and look around", "Wait it out with the window down", "Call the owner first"], why: "If you see anything suspicious, leave immediately and go to a safe area." },
+    { prompt: "If you are robbed, you:", answer: "Cooperate and do not resist", choices: ["Cooperate and do not resist", "Chase them", "Lock the doors with them inside", "Refuse to open the safe"], why: "Cooperate and do not resist. Your safety comes first." },
+    { prompt: "Where do you prepare the deposit?", answer: "In the office with the store doors locked and no non-team members inside", choices: ["At the front counter", "In the office with the store doors locked and no non-team members inside", "In the car", "At the bank"], why: "Prepare deposits in the office with the doors locked and no non-team members in the store." },
+    { prompt: "How long is the time-delay safe delay?", answer: "9 minutes", choices: ["3 minutes", "5 minutes", "9 minutes", "15 minutes"], why: "The time-delay safe has a 9-minute delay." },
+    { prompt: "What is the max in a single till?", answer: "$150", choices: ["$20", "$100", "$150", "$500"], why: "Max in a single till/cash drawer: $150." },
+    { prompt: "What is the max cash a driver carries?", answer: "$20", choices: ["$20", "$50", "$100", "$150"], why: "Enforce the $20 max on drivers, with drops after every run." },
+    { prompt: "In the 3 compartment sink, left to right, the order is:", answer: "Soap, rinse, sanitize", choices: ["Soap, rinse, sanitize", "Rinse, soap, sanitize", "Sanitize, soap, rinse", "Soap, sanitize, rinse"], why: "Soap, then rinse, then sanitize." },
+    { prompt: "Dishes are stored:", answer: "Upside down", choices: ["Upside down", "Right side up", "In the sink", "On the floor rack"], why: "Dishes are washed, rinsed, sanitized, dried and stored upside down." },
+  ],
+  checklists: [
+    { prompt: "Coke products expire on which day?", answer: "Monday", choices: ["Sunday", "Monday", "Wednesday", "Friday"], why: "The opening checklist notes that Coke products expire on a Monday." },
+    { prompt: "How many thermometers go in the rail at opening?", answer: "2", choices: ["1", "2", "3", "4"], why: "Place 2 thermometers in the rail." },
+    { prompt: "At pre-lunch, you prep pans, twists and bites for the next:", answer: "4 hours", choices: ["1 hour", "2 hours", "4 hours", "8 hours"], why: "Prep pans, twists and bites for lunch (next 4 hours)." },
+    { prompt: "Around what time do you start prepping sides for the dinner rush?", answer: "3:00", choices: ["1:00", "2:00", "3:00", "5:00"], why: "Somewhere around 3:00, start prepping sides for the dinner rush." },
+    { prompt: "Where is the closing deposit recorded?", answer: "PULSE", choices: ["PULSE", "Zenput", "EFO", "Jobalign"], why: "Make the deposit and record it in PULSE." },
+    { prompt: "Where is the shift change (money and cheese) recorded?", answer: "Zenput", choices: ["Zenput", "PULSE", "EFO", "The Temp Log"], why: "Do the shift change (money and cheese) and record it in Zenput." },
+    { prompt: "At closing, rush drivers clean how many hot bags each?", answer: "2", choices: ["1", "2", "4", "None"], why: "Rush drivers clean 2 hot bags each." },
+    { prompt: "When do you flip the makeline into carryover bins?", answer: "At pre-close, 1 to 1.5 hours before close", choices: ["At open", "At pre-close, 1 to 1.5 hours before close", "After the last order", "Never"], why: "Pre-close (1 to 1.5 hours to close): flip the makeline into carryover bins." },
+  ],
+};
+
+function generateMitLevel1Cert() {
+  const all = [];
+  MIT_SECTIONS.forEach((sec) => {
+    (MIT_QUIZ[sec.key] || []).forEach((q) => all.push({ ...q, category: sec.title }));
+  });
+  return sampleWithoutReplacement(all, 20).map((q) => ({ type: "Policy", kind: "mc", data: { prompt: q.prompt, answer: q.answer, choices: shuffle(q.choices), category: q.category } }));
+}
+const MIT_TEST_COUNT = 20;
+
+function mitSectionProgress(trainee, section) {
+  const done = section.items.filter((it) => trainee && trainee.items && trainee.items[it.id] && trainee.items[it.id].ts).length;
+  return { done, total: section.items.length };
+}
+function mitAllSigned(trainee) {
+  return !!trainee && MIT_SECTIONS.every((s) => { const p = mitSectionProgress(trainee, s); return p.done === p.total; });
+}
+
+function MitHub({ mit, onAddTrainee, onSelectTrainee, onRemoveTrainee, onOpenSection, onTest, onBack }) {
+  const [name, setName] = useState("");
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const active = mit.trainees.find((t) => t.id === mit.activeId) || null;
+  const allSigned = mitAllSigned(active);
+  const add = () => { if (!name.trim()) return; onAddTrainee(name.trim()); setName(""); };
+
+  return (
+    <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg }}>
+      <div style={{ maxWidth: 512, margin: "0 auto" }}>
+        <button onClick={onBack} style={{ background: "none", border: `1px solid ${C.panelBorder}`, color: C.textMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 10px", borderRadius: 6, cursor: "pointer", marginBottom: 20 }}>← Home</button>
+        <h1 style={{ fontFamily: C.displayFont, fontSize: 32, fontWeight: 800, color: C.white, textTransform: "uppercase", margin: "0 0 4px" }}>Manager in Training</h1>
+        <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 20 }}>Level 1 · trainer-led walkthrough. Work one section at a time, sign off each item, then take the knowledge test.</p>
+
+        <div style={{ background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 16, marginBottom: 18 }}>
+          <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: "0 0 10px" }}>Trainee</p>
+          {mit.trainees.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+              {mit.trainees.map((t) => {
+                const on = t.id === mit.activeId;
+                return (
+                  <button key={t.id} onClick={() => onSelectTrainee(t.id)} style={{ padding: "6px 12px", borderRadius: 6, fontSize: 13, fontWeight: 700, border: `1px solid ${on ? C.blue : C.panelBorder}`, background: on ? C.blue : "transparent", color: on ? "white" : C.textMuted, cursor: "pointer" }}>{t.name}</button>
+                );
+              })}
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 8 }}>
+            <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") add(); }} placeholder={mit.trainees.length ? "Add another trainee" : "Trainee name"} style={{ flex: 1, background: C.bg, border: `1px solid ${C.panelBorder}`, borderRadius: 4, padding: "10px 12px", color: C.white, fontSize: 14, outline: "none", boxSizing: "border-box", minWidth: 0 }} />
+            <button onClick={add} style={{ background: C.blue, color: "white", fontWeight: 700, padding: "0 16px", borderRadius: C.btnRadius, border: "none", cursor: "pointer" }}>Add</button>
+          </div>
+          {active && (
+            <div style={{ marginTop: 10 }}>
+              {confirmRemove ? (
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <span style={{ color: C.textMuted, fontSize: 12, flex: 1 }}>Remove {active.name} and all their sign-offs?</span>
+                  <button onClick={() => { onRemoveTrainee(active.id); setConfirmRemove(false); }} style={{ background: C.red, color: "white", fontWeight: 700, fontSize: 12, padding: "6px 12px", borderRadius: 4, border: "none", cursor: "pointer" }}>Remove</button>
+                  <button onClick={() => setConfirmRemove(false)} style={{ background: "transparent", color: C.textMuted, fontWeight: 700, fontSize: 12, padding: "6px 12px", borderRadius: 4, border: `1px solid ${C.panelBorder}`, cursor: "pointer" }}>Keep</button>
+                </div>
+              ) : (
+                <button onClick={() => setConfirmRemove(true)} style={{ background: "none", border: "none", color: C.textFaint, fontSize: 12, padding: 0, cursor: "pointer", textDecoration: "underline" }}>Remove {active.name}</button>
+              )}
+            </div>
+          )}
+          <p style={{ color: C.textFaint, fontSize: 12, margin: "10px 0 0" }}>Sign-offs are saved on this device only.</p>
+        </div>
+
+        {!active ? (
+          <div style={{ background: C.panelDim, border: `1px solid ${C.panelBorderDim}`, borderRadius: 8, padding: 20, color: C.textMuted, fontSize: 14 }}>Add a trainee above to start signing off items.</div>
+        ) : (
+          <React.Fragment>
+            {MIT_SECTIONS.map((sec) => {
+              const p = mitSectionProgress(active, sec);
+              const complete = p.done === p.total;
+              const quizScore = active.quiz ? active.quiz[sec.key] : undefined;
+              return (
+                <div key={sec.key} onClick={() => onOpenSection(sec.key)} style={{ cursor: "pointer", background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: 8, padding: 18, marginBottom: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 6, background: complete ? C.green : C.blue, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 20 }}>{sec.icon}</div>
+                    <div style={{ flex: 1 }}>
+                      <h2 style={{ color: C.white, fontWeight: 700, margin: 0, fontSize: 17, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        {sec.title}
+                        {complete && <span style={{ fontSize: 11, fontWeight: 700, color: C.green, background: C.greenSoft, padding: "2px 8px", borderRadius: 6 }}>✓ Signed off</span>}
+                      </h2>
+                      <p style={{ color: C.textMuted, fontSize: 13, margin: "2px 0 0" }}>{p.done} of {p.total} items signed off{quizScore !== undefined ? ` · quiz ${quizScore}%` : ""}</p>
+                    </div>
+                    <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
+                  </div>
+                  <div style={{ height: 5, background: C.track, borderRadius: 5, overflow: "hidden", marginTop: 12 }}>
+                    <div style={{ height: "100%", background: C.green, width: `${(p.done / p.total) * 100}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+
+            {allSigned ? (
+              <div onClick={onTest} style={{ cursor: "pointer", background: C.panel, border: `2px solid ${C.red}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16, marginTop: 6 }}>
+                <div style={{ width: 48, height: 48, borderRadius: 6, background: C.red, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>🏆</div>
+                <div style={{ flex: 1 }}>
+                  <h2 style={{ color: C.white, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    Level 1 Knowledge Test
+                    {active.testPassed && <span style={{ fontSize: 11, fontWeight: 700, color: C.green, background: C.greenSoft, padding: "2px 8px", borderRadius: 6 }}>✓ Passed</span>}
+                  </h2>
+                  <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>{MIT_TEST_COUNT} questions · pass at 90%</p>
+                </div>
+                <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
+              </div>
+            ) : (
+              <div style={{ background: C.panelDim, border: `1px solid ${C.panelBorderDim}`, borderRadius: 8, padding: 20, display: "flex", alignItems: "center", gap: 16, opacity: 0.6, marginTop: 6 }}>
+                <div style={{ width: 48, height: 48, borderRadius: 6, background: C.panelBorder, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 20 }}>🔒</div>
+                <div style={{ flex: 1 }}>
+                  <h2 style={{ color: C.white, fontWeight: 700, margin: 0 }}>Level 1 Knowledge Test</h2>
+                  <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>Sign off every section to unlock</p>
+                </div>
+              </div>
+            )}
+          </React.Fragment>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MitGuidedQuiz({ title, questions, onFinish, onExit }) {
+  const [i, setI] = useState(0);
+  const [picked, setPicked] = useState(null);
+  const [correct, setCorrect] = useState(0);
+  const [done, setDone] = useState(false);
+  const shuffled = useMemo(() => questions.map((q) => ({ ...q, choices: shuffle(q.choices) })), [questions]);
+  const q = shuffled[i];
+  const pct = Math.round((correct / shuffled.length) * 100);
+
+  const choose = (c) => {
+    if (picked !== null) return;
+    setPicked(c);
+    if (c === q.answer) setCorrect((n) => n + 1);
+  };
+  const next = () => {
+    if (i + 1 >= shuffled.length) { setDone(true); return; }
+    setI(i + 1);
+    setPicked(null);
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg }}>
+      <div style={{ maxWidth: 512, margin: "0 auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: 0 }}>{title} · practice quiz</p>
+          <button onClick={onExit} style={{ background: "none", border: `1px solid ${C.panelBorder}`, color: C.textMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 10px", borderRadius: 6, cursor: "pointer" }}>← Back</button>
+        </div>
+        {!done ? (
+          <React.Fragment>
+            <p style={{ color: C.textFaint, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 8px" }}>Question {i + 1} of {shuffled.length} · no timer</p>
+            <p style={{ fontSize: 19, fontWeight: 700, color: C.white, lineHeight: 1.4, marginBottom: 20 }}>{q.prompt}</p>
+            <div style={{ display: "grid", gap: 10 }}>
+              {q.choices.map((c) => {
+                const isAnswer = c === q.answer;
+                const isPicked = c === picked;
+                const show = picked !== null;
+                const border = show ? (isAnswer ? C.green : isPicked ? C.red : C.panelBorder) : C.panelBorder;
+                const bg = show ? (isAnswer ? C.greenSoft : isPicked ? C.redSoft : C.panel) : C.panel;
+                return (
+                  <button key={c} onClick={() => choose(c)} disabled={show} style={{ textAlign: "left", padding: "14px 16px", borderRadius: 6, background: bg, border: `2px solid ${border}`, color: C.white, fontWeight: 600, cursor: show ? "default" : "pointer" }}>{c}</button>
+                );
+              })}
+            </div>
+            {picked !== null && (
+              <div style={{ marginTop: 16, background: picked === q.answer ? C.greenSoft : C.redSoft, border: `1px solid ${picked === q.answer ? C.green : C.red}`, borderRadius: 6, padding: 14 }}>
+                <p style={{ color: C.white, fontWeight: 800, margin: "0 0 4px", fontSize: 14 }}>{picked === q.answer ? "Right." : "Not quite."}</p>
+                <p style={{ color: C.white, fontSize: 14, lineHeight: 1.5, margin: 0 }}>{q.why}</p>
+              </div>
+            )}
+            {picked !== null && (
+              <button onClick={next} style={{ width: "100%", marginTop: 16, background: C.blue, color: "white", fontWeight: 700, fontSize: 16, padding: "13px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer" }}>{i + 1 >= shuffled.length ? "See my score" : "Next →"}</button>
+            )}
+          </React.Fragment>
+        ) : (
+          <div style={{ textAlign: "center", paddingTop: 20 }}>
+            <div style={{ width: 96, height: 96, borderRadius: "50%", margin: "0 auto 16px", display: "flex", alignItems: "center", justifyContent: "center", border: `4px solid ${pct >= 90 ? C.green : C.red}`, background: pct >= 90 ? C.greenSoft : C.redSoft }}>
+              <span style={{ fontSize: 30, fontWeight: 900, color: C.white }}>{pct}%</span>
+            </div>
+            <h2 style={{ color: C.white, fontSize: 22, fontWeight: 900, margin: "0 0 4px" }}>{correct} of {shuffled.length} correct</h2>
+            <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 20 }}>{pct >= 90 ? "Solid. This section is ready." : "Go back over the items you missed with your trainer, then try again."}</p>
+            <button onClick={() => onFinish(pct)} style={{ width: "100%", background: C.blue, color: "white", fontWeight: 700, fontSize: 16, padding: "13px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer", marginBottom: 10 }}>Save score and go back</button>
+            <button onClick={() => { setI(0); setPicked(null); setCorrect(0); setDone(false); }} style={{ width: "100%", background: "transparent", color: C.textMuted, fontWeight: 700, fontSize: 14, padding: "10px 0", borderRadius: C.btnRadius, border: `1px solid ${C.panelBorder}`, cursor: "pointer" }}>Retry quiz</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MitSection({ section, trainee, onToggle, onQuizDone, onBack }) {
+  const [i, setI] = useState(0);
+  const [hits, setHits] = useState({});
+  const [mode, setMode] = useState("walk");
+  const item = section.items[i];
+  const isLast = i === section.items.length - 1;
+  const rec = (trainee.items && trainee.items[item.id]) || {};
+
+  if (mode === "quiz") {
+    return <MitGuidedQuiz title={section.title} questions={MIT_QUIZ[section.key] || []} onFinish={(pct) => { onQuizDone(section.key, pct); setMode("walk"); }} onExit={() => setMode("walk")} />;
+  }
+
+  const toggleHit = (idx) => setHits((h) => { const key = item.id + ":" + idx; return { ...h, [key]: !h[key] }; });
+  const signBtn = (key, label) => {
+    const on = !!rec[key];
+    return (
+      <button onClick={() => onToggle(item.id, key)} style={{ flex: 1, padding: "12px 8px", borderRadius: 6, fontWeight: 800, fontSize: 14, border: `2px solid ${on ? C.green : C.panelBorder}`, background: on ? C.green : "transparent", color: on ? "white" : C.textMuted, cursor: "pointer" }}>{on ? "✓ " : ""}{label}</button>
+    );
+  };
+  const bullets = (list) => list.map((line, idx) => (
+    <div key={idx} style={{ background: C.panel, border: `1px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: "10px 14px", marginBottom: 8 }}>
+      <p style={{ color: C.white, fontSize: 14, lineHeight: 1.5, margin: 0 }}>{line}</p>
+    </div>
+  ));
+
+  return (
+    <div style={{ minHeight: "100vh", padding: "40px 24px", display: "flex", flexDirection: "column", background: C.bg }}>
+      <div style={{ maxWidth: 512, margin: "0 auto", width: "100%", flex: 1, display: "flex", flexDirection: "column" }}>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, color: C.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+            <span>{trainee.name} · Item {i + 1} of {section.items.length}</span>
+            <button onClick={onBack} style={{ background: "none", border: `1px solid ${C.panelBorder}`, color: C.textMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 10px", borderRadius: 6, cursor: "pointer" }}>← Sections</button>
+          </div>
+          <div style={{ height: 6, background: C.track, borderRadius: 6, overflow: "hidden" }}>
+            <div style={{ height: "100%", background: C.blue, transition: "width 0.3s", width: `${((i + 1) / section.items.length) * 100}%` }} />
+          </div>
+        </div>
+
+        <div style={{ flex: 1 }}>
+          <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, marginBottom: 4 }}>{section.title}</p>
+          <h2 style={{ fontFamily: C.displayFont, color: C.white, fontSize: 26, fontWeight: 800, textTransform: "uppercase", margin: "0 0 16px" }}>{item.title}</h2>
+
+          {item.tm ? (
+            <React.Fragment>
+              <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: "0 0 8px" }}>Manager</p>
+              {bullets(item.points)}
+              <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: "14px 0 8px" }}>Team member(s)</p>
+              {bullets(item.tm)}
+            </React.Fragment>
+          ) : (
+            <React.Fragment>
+              <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: "0 0 8px" }}>What good looks like</p>
+              {bullets(item.points)}
+            </React.Fragment>
+          )}
+
+          {item.show && (
+            <div style={{ background: C.blueSoft, border: `2px solid ${C.blue}`, borderRadius: C.cardRadius, padding: 14, margin: "16px 0 8px" }}>
+              <p style={{ color: C.blue, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 800, margin: "0 0 4px" }}>Trainer — show it, then have them do it</p>
+              <p style={{ color: C.white, fontSize: 14, lineHeight: 1.5, margin: 0 }}>{item.show}</p>
+            </div>
+          )}
+
+          {item.skill && (
+            <div style={{ background: C.purpleSoft, border: `2px solid ${C.purple}`, borderRadius: C.cardRadius, padding: 14, margin: "16px 0 8px" }}>
+              <p style={{ color: C.purple, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 800, margin: "0 0 6px" }}>{item.skill.title}</p>
+              <p style={{ color: C.white, fontSize: 14, lineHeight: 1.5, margin: "0 0 10px" }}>{item.skill.prompt}</p>
+              <p style={{ color: C.textMuted, fontSize: 12, fontWeight: 700, margin: "0 0 6px" }}>Tap each one the trainee hits:</p>
+              {item.skill.hit.map((h, idx) => {
+                const on = !!hits[item.id + ":" + idx];
+                return (
+                  <button key={idx} onClick={() => toggleHit(idx)} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: "10px 12px", marginBottom: 6, borderRadius: 6, border: `1px solid ${on ? C.green : C.panelBorder}`, background: on ? C.greenSoft : C.panel, color: C.white, fontWeight: 600, fontSize: 14, cursor: "pointer" }}>
+                    <span style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${on ? C.green : C.textFaint}`, background: on ? C.green : "transparent", color: "white", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{on ? "✓" : ""}</span>
+                    {h}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginTop: 20 }}>
+          <p style={{ color: C.textFaint, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 6px" }}>Sign-off (same as the paper sheet)</p>
+          <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+            {signBtn("ts", "TS — Trainer")}
+            {signBtn("gm", "GM — Approved")}
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={() => setI((v) => Math.max(0, v - 1))} disabled={i === 0} style={{ flex: 1, background: C.panel, border: `1px solid ${C.panelBorder}`, color: C.white, fontWeight: 700, padding: "12px 0", borderRadius: 4, cursor: i === 0 ? "default" : "pointer", opacity: i === 0 ? 0.4 : 1, fontSize: 15 }}>← Back</button>
+            {isLast ? (
+              <button onClick={() => setMode("quiz")} style={{ flex: 2, background: C.green, border: "none", color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 4, cursor: "pointer", fontSize: 15 }}>Section quiz →</button>
+            ) : (
+              <button onClick={() => setI((v) => Math.min(section.items.length - 1, v + 1))} style={{ flex: 2, background: C.blue, border: "none", color: "white", fontWeight: 700, padding: "12px 0", borderRadius: 4, cursor: "pointer", fontSize: 15 }}>Next →</button>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
