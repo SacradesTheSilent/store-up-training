@@ -961,7 +961,7 @@ function DashCard({ onClick, icon, iconBg, title, desc, badge, badgeKind, locked
   );
 }
 
-function Dashboard({ studyGuideViewed, newHirePassed, isDark, onToggleDark, onStartStudy, onStartNewHire, onOpenCSRPath, onStartEndless, showSweetHeat, onOpenSweetHeat, onOpenMit, resumeState, onResume, onDiscardResume }) {
+function Dashboard({ studyGuideViewed, newHirePassed, isDark, onToggleDark, onStartStudy, onStartNewHire, onOpenCSRPath, onStartEndless, showSweetHeat, onOpenSweetHeat, onOpenMit, onOpenLibrary, libraryDone, resumeState, onResume, onDiscardResume }) {
   return (
     <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg, fontFamily: C.bodyFont }}>
       <div style={{ maxWidth: 512, margin: "0 auto" }}>
@@ -993,6 +993,7 @@ function Dashboard({ studyGuideViewed, newHirePassed, isDark, onToggleDark, onSt
         {showSweetHeat && (
           <DashCard onClick={onOpenSweetHeat} icon="🔥" iconBg={C.red} title="Sweet Heat Smokehouse" badge="New" badgeKind="new" desc={`${SWEET_HEAT_QUESTION_COUNT} questions · new specialty launch week`} />
         )}
+        <DashCard onClick={onOpenLibrary} icon="🍕" iconBg={C.blue} title="Pizza Library" badge={libraryDone ? `${libraryDone} practiced` : "New"} badgeKind={libraryDone ? undefined : "new"} desc="Step by step tutorials · best practices · self-check, go at your pace" />
         <DashCard onClick={onStartStudy} icon="📖" iconBg={C.green} title="Study Guide" badge={studyGuideViewed ? "✓ Completed" : null} desc="Crusts, codes, builds, portions & The Domino · self-paced, no timer" />
         <DashCard onClick={onStartEndless} icon="∞" iconBg={C.purple} title="Endless Practice" desc="Unlimited drills · everything mixed in · stop anytime" />
         <DashCard onClick={onStartNewHire} icon="🏆" iconBg={C.red} title="New Hire Certification" badge={newHirePassed ? "✓ Passed" : null} desc={`${NEWHIRE_QUESTION_COUNT} questions · crust & size, specialty builds, Domino basics · pass at 90%`} />
@@ -1963,6 +1964,457 @@ function renderQuestion(q, shellProps, onAnswer) {
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// PIZZA LIBRARY — hands-on tutorials. No locks, no timers. Each topic has
+// steps, best practices, common mistakes and an untimed self-check. Written
+// from Domino's U.S. job aids; where a store's own standard may differ the
+// trainer's word wins.
+// ---------------------------------------------------------------------------
+const LIBRARY_KEY = "storeup-library";
+function loadLibrary() { try { return JSON.parse(localStorage.getItem(LIBRARY_KEY)) || {}; } catch (e) { return {}; } }
+function saveLibrary(v) { try { localStorage.setItem(LIBRARY_KEY, JSON.stringify(v)); } catch (e) {} }
+
+const LIBRARY_TOPICS = [
+  {
+    key: "handtossed", group: "Make the pizza", icon: "🍕", title: "Hand Tossed, start to finish", audience: "Everyone",
+    summary: "The base skill. Stretch, sauce, cheese, toppings, to the edge, every time.",
+    steps: [
+      { t: "Use dough that is ready", d: "Dough should be properly tempered and not sticky or torn. If it fights you or snaps back, it is not ready and no technique will fix it. Tell the manager." },
+      { t: "Form the rim", d: "Using your fingertips, press a rim around the dough ball. The finished rim is about 3/4 inch wide." },
+      { t: "Stretch with one hand, anchor with the other", d: "Use one hand to stretch the dough out from the rim and the other as an anchor. Keep turning the dough and stretch to the size you need: 10, 12, 14 or 16 inch." },
+      { t: "Do the light test", d: "Hold the dough up to the light over the screen. Some light around the edge is fine. There should be no light coming through the center." },
+      { t: "Sauce edge to edge", d: "Portion the sauce and spread it with the spoodle in a spiral, out to where the rim begins. Hand Tossed sauce is 3.0 oz on a 10 inch, 4.2 on a 12, 6.0 on a 14 and 8.0 on a 16." },
+      { t: "Cheese to the edge", d: "Regular cheese with toppings is 3.5, 5.0, 7.0 and 9.0 oz for 10, 12, 14 and 16 inch. Extra cheese is a second layer on top: add 1.5, 2.5, 3.5 or 4.5 oz." },
+      { t: "Toppings to the edge", d: "Use the topping portion card for the size, spread them evenly and go all the way to the cheese line, not just the middle. Cheese-only pizzas take a bigger cheese portion: 5.0, 7.5, 10.5 and 13.5 oz." },
+      { t: "Oven, then finish", d: "Garlic oil goes on Hand Tossed after the bake: 0.3 oz on 8 and 10 inch, 0.4 on 12, 0.5 on 14 and 16. Then cut and box." },
+    ],
+    best: [
+      "Build the same pizza the same way every time. Weighing the first few builds of a shift keeps your hands calibrated.",
+      "Work the dough from the edge. Moving the dough around while you stretch keeps thickness even.",
+      "Portion with the scale or the portion tools until it is muscle memory, then spot check.",
+    ],
+    mistakes: [
+      "Stretching the center. Thin centers make excess grease and a floppy pizza.",
+      "Using the palm or heel of the hand to flatten the dough.",
+      "Leaving a bare ring of crust with no sauce or cheese, or sauce so close to the lip that it scorches.",
+      "Dumping all the cheese in the middle so the edge is bare.",
+    ],
+    check: [
+      { q: "How wide is the finished rim, and how do you form it?", a: "About 3/4 inch, formed with your fingertips around the dough ball." },
+      { q: "What do you expect to see on the light test?", a: "Some light around the edge but none in the center." },
+      { q: "How much sauce and regular cheese on a 14 inch Hand Tossed with toppings?", a: "6.0 oz sauce and 7.0 oz cheese." },
+      { q: "Where does garlic oil go and how much on a 12 inch?", a: "After the bake, 0.4 oz." },
+    ],
+  },
+  {
+    key: "pan", group: "Make the pizza", icon: "🥘", title: "Pan Pizza", audience: "Everyone",
+    summary: "Oil the pan, gravity stretch, no rim, sticky side down, provolone first.",
+    steps: [
+      { t: "Oil the pan", d: "Apply 0.3 oz of butter flavored oil, then spread it with a silicone brush about halfway up the sides of the pan." },
+      { t: "Gravity stretch the dough", d: "Hold the dough ball and move it in a circular motion, letting its own weight stretch it. Stop when it reaches about the size of a 10 inch screen. Do not create a rim." },
+      { t: "Sticky side down", d: "Place the dough in the pan sticky side down. Keep stretching with your fingers until it reaches the edge of the pan. Still no rim." },
+      { t: "Dock the dough", d: "Press your fingers into the dough to dock it. Lift the dough as you go to release larger air bubbles." },
+      { t: "Seal to the sides", d: "Press the dough against the sides of the pan so it is sealed all the way around." },
+      { t: "Shredded provolone first", d: "4 oz of shredded provolone goes down first, all the way to the wall of the pan." },
+      { t: "Sauce in stripes", d: "3 oz of pizza sauce applied in lines across the cheese." },
+      { t: "Pizza cheese on top", d: "3.0 oz pizza cheese with toppings, or 4.5 oz for just cheese. Toppings follow the 12 inch portions and also go to the wall of the pan." },
+    ],
+    best: [
+      "Oil up the sides of the pan too. That is what gives the crisp, golden edge.",
+      "Everything goes to the wall of the pan, cheese and toppings included.",
+      "If the dough keeps springing back, let it rest a minute and come back to it.",
+    ],
+    mistakes: [
+      "Forming a rim like Hand Tossed. Pan dough does not get one.",
+      "Placing the dough sticky side up.",
+      "Leaving large air bubbles because the dough was not docked.",
+      "Skipping the oil on the sides of the pan.",
+    ],
+    check: [
+      { q: "What is the order of layers on a Pan Pizza?", a: "Dough, shredded provolone (4 oz), sauce (3 oz), pizza cheese, toppings." },
+      { q: "Which side of the dough goes down in the pan?", a: "The sticky side." },
+      { q: "Do you form a rim on Pan dough?", a: "No." },
+      { q: "How much butter flavored oil goes in the pan?", a: "0.3 oz, brushed about halfway up the sides." },
+    ],
+  },
+  {
+    key: "ny", group: "Make the pizza", icon: "🗽", title: "New York Style", audience: "Everyone",
+    summary: "Stretch a size up, thin enough to see light, half the cheese plus provolone.",
+    steps: [
+      { t: "Pick the right dough", d: "New York Style uses a smaller dough stretched larger. A 10 inch dough becomes a 12 inch NY, a 12 inch dough becomes a 14 inch, and a 14 inch dough becomes a 16 inch." },
+      { t: "Rim and stretch", d: "Form a fingertip rim of about 3/4 inch, then stretch with one hand while the other anchors. It should be thin enough to see light through." },
+      { t: "Sauce", d: "4.2 oz on a 12 inch, 6.0 on a 14 and 8.0 on a 16." },
+      { t: "Pizza cheese", d: "2.5 oz on a 12 inch, 3.5 on a 14 and 4.5 on a 16. That is half the standard cheese portion." },
+      { t: "Don't forget the provolone", d: "Shredded provolone is 3.0 oz on a 12 inch, 4.0 on a 14 and 5.5 on a 16." },
+      { t: "Toppings and bake", d: "Cheese-only New York pizzas get the same cheese portions as ones with toppings. No garlic oil on New York Style." },
+    ],
+    best: [
+      "Say the size conversion out loud when you grab the dough until it is automatic.",
+      "Stretch gently. The dough is thin by design, so a tear is easy to make.",
+    ],
+    mistakes: [
+      "Using the full Hand Tossed cheese portion.",
+      "Forgetting the provolone, the signature of the style.",
+      "Stretching the center instead of working from the edge.",
+      "Garlic oil on a New York pizza.",
+    ],
+    check: [
+      { q: "What dough do you use for a 14 inch New York Style?", a: "A 12 inch dough, stretched to 14." },
+      { q: "Cheese and provolone on a 12 inch NY?", a: "2.5 oz pizza cheese and 3.0 oz shredded provolone." },
+      { q: "Does a cheese-only NY get more cheese than one with toppings?", a: "No. Same portions." },
+      { q: "Garlic oil on NY?", a: "No garlic oil." },
+    ],
+  },
+  {
+    key: "thin", group: "Make the pizza", icon: "⭕", title: "Thin Crust", audience: "Everyone",
+    summary: "Par baked shell on a screen. Sauce and cheese all the way to the edge, oregano before the bake.",
+    steps: [
+      { t: "Screen on the table", d: "Place the right size disk or screen on the table." },
+      { t: "Shell on the screen", d: "Take a Thin Crust par baked shell out of the sealed bag and set it on the screen. Reseal the bag so the rest do not dry out." },
+      { t: "Sauce to the edge", d: "Sauce all the way to the edge. Within 1/8 inch is acceptable." },
+      { t: "Cheese to the edge", d: "Apply the cheese all the way out so the edge does not burn. Thin Crust cheese portions are the same as Hand Tossed." },
+      { t: "Toppings to the edge", d: "Apply standard portions and place toppings all the way to the edge." },
+      { t: "Oregano, then oven", d: "Sprinkle oregano on build-your-own Thin Crust pizzas before baking, then into the oven. Several specialty pizzas also get oregano, such as ExtravaganZZA, MeatZZa, Deluxe, Ultimate Pepperoni and Wisconsin 6 Cheese." },
+    ],
+    best: [
+      "Reseal the shell bag every time. Dried out shells crack.",
+      "Thin Crust takes no garlic oil.",
+      "Thin Crust is cut in squares, not wedges (see the cut guide).",
+    ],
+    mistakes: [
+      "Leaving the edge bare so it burns or comes out dry.",
+      "Forgetting the oregano.",
+      "Leaving the shell bag open on the table.",
+    ],
+    check: [
+      { q: "How close to the edge does the sauce go?", a: "All the way, within 1/8 inch." },
+      { q: "When does oregano go on?", a: "Before baking, on build-your-own Thin Crust and the listed specialty pizzas." },
+      { q: "Cheese portions on Thin Crust compared to Hand Tossed?", a: "Identical." },
+    ],
+  },
+  {
+    key: "gf", group: "Make the pizza", icon: "🌾", title: "Gluten Free", audience: "Everyone",
+    summary: "One size, no substitution, no oregano, small box, six slices.",
+    steps: [
+      { t: "Shell on a 10 inch screen", d: "Remove the pizza shell from the case and place it on a 10 inch screen. The bottom has brown circular markings, which is normal." },
+      { t: "Sauce", d: "Using the same spoodle, spread 3 oz of sauce all the way to the edge." },
+      { t: "Cheese", d: "Use regular 10 inch portions: 3.5 oz of cheese." },
+      { t: "Toppings", d: "All topping portions equal a 10 inch pizza. No oregano before the bake." },
+      { t: "Box and cut", d: "Small pizza box, cut into 6 slices." },
+    ],
+    best: [
+      "If the store is out of Gluten Free crust there is no substitution. Tell the customer you are out for the day and when you expect the next shipment.",
+      "Clean hands and tools before building. Follow your store's allergen handling procedure.",
+    ],
+    mistakes: [
+      "Substituting a different crust.",
+      "Adding oregano before the bake.",
+      "Cutting in the wrong pattern. Gluten Free is cut like a 10 inch.",
+    ],
+    check: [
+      { q: "What do you do if you are out of Gluten Free crust?", a: "Do not substitute. Tell the customer you are out and when the next shipment is expected." },
+      { q: "Sauce and cheese amounts?", a: "3 oz sauce, 3.5 oz cheese." },
+      { q: "How many slices and which box?", a: "Six slices in a small pizza box." },
+    ],
+  },
+  {
+    key: "stuffed", group: "Make the pizza", icon: "🧀", title: "Stuffed Crust", audience: "Aspiring managers",
+    summary: "Pan dough stretched to 14 inch, four string cheese, fold, seal, crimp.",
+    steps: [
+      { t: "Start from Pan dough", d: "Place a Pan dough ball in cornmeal. Do not form a rim. Put your fingers over the edge of the dough and slightly flatten it while rotating so the thickness is even around the edge." },
+      { t: "Edge stretch", d: "With your hands over the edge, continue with the normal edge stretching procedure." },
+      { t: "Stretch to 14 inch", d: "Use the Stuffed Crust ring as a size comparison if you need it." },
+      { t: "Dough on the disk and ring", d: "Place the dough on top of the disk and Stuffed Crust ring combo. The edge of the dough should rest on the ridge of the ring." },
+      { t: "Four string cheese", d: "Place four equally spaced pieces of string cheese tightly against the crease formed by the ring and the disk." },
+      { t: "Fold and seal", d: "Fold the dough from the outside edge of the ring over the string cheese. Rest your thumbs outside the ring and press firmly with your fingers on both hands to seal the crust. Rotate the disk and ring and repeat until the whole pizza is sealed." },
+      { t: "Press and inspect", d: "Place the Pie Press Crimper in the center and push down to seal the crust, then lift it out gently using the finger holes. Check the seal for openings. If you find one, crimp it with your hands, then remove the ring." },
+      { t: "Sauce and build like a 12 inch", d: "Use 12 inch Hand Tossed portions. Sauce edge to edge so it covers the seal, but keep sauce off the crust itself to prevent scorching." },
+    ],
+    best: [
+      "Seal every inch. An opening lets cheese leak out in the oven and the pizza comes out looking wrong.",
+      "A Domino's dough spinner can stretch the Pan dough used for Stuffed Crust, but hand stretching is fine.",
+    ],
+    mistakes: [
+      "Using only three pieces of string cheese or spacing them unevenly.",
+      "Sauce on the crust, which scorches.",
+      "Not checking the seal before removing the ring.",
+    ],
+    check: [
+      { q: "How many string cheese pieces and how are they placed?", a: "Four, equally spaced, tight against the crease of the ring and disk." },
+      { q: "What size do you stretch the dough to?", a: "14 inch." },
+      { q: "What portions do you use to build it?", a: "12 inch Hand Tossed portions." },
+      { q: "What do you do if you find an opening in the seal?", a: "Crimp it closed with your hands, then remove the ring." },
+    ],
+  },
+  {
+    key: "cut", group: "Finish and quality", icon: "🔪", title: "Cut, Garlic Oil and Boxing", audience: "Everyone",
+    summary: "Right cut pattern, right oil, right box. This is the last thing the customer sees.",
+    steps: [
+      { t: "Pick the cut pattern", d: "The cut guide groups 10 inch Hand Tossed, Gluten Free and New York Style together as a six slice cut. 12, 14 and 16 inch Hand Tossed, Pan and Stuffed Crust are cut in eight slices. Thin Crust is a square cut across a grid. Follow the cut guide for the exact blade pattern for each." },
+      { t: "Apply garlic oil to the right pizzas", d: "Garlic oil goes on Hand Tossed only: 0.3 oz on 8 and 10 inch, 0.4 on 12, 0.5 on 14 and 16, and 0.4 on 12 inch Stuffed Crust. None on Pan, Thin Crust, Gluten Free or New York Style." },
+      { t: "Parmesan on Stuffed Crust", d: "Parmesan shake-on for Stuffed Crust is 0.25 oz." },
+      { t: "Choose the box", d: "10 inch Hand Tossed and Gluten Free go in a 10 inch box. 12 inch HT, Thin Crust and NY in a 12 inch box. 14 inch in a 14 inch box. 16 inch HT and NY in a 16 inch box. Pan and Stuffed Crust go in the black box. For Pan only, add a 9 by 9 inch liner." },
+      { t: "Double check against the ticket", d: "Before it leaves the makeline or the cut table, compare the pizza to the ticket: size, crust, toppings, notes." },
+    ],
+    best: [
+      "Cut all the way through to the bottom. A half cut pizza falls apart in the box.",
+      "Wipe the cutter and keep your station clean between pizzas.",
+    ],
+    mistakes: [
+      "Garlic oil on a pizza that should not get it.",
+      "Using the wrong cut on a 10 inch compared to a 12 inch.",
+      "Forgetting the liner in the black box for Pan.",
+    ],
+    check: [
+      { q: "Which pizzas get garlic oil?", a: "Hand Tossed, plus 12 inch Stuffed Crust at 0.4 oz. Never Pan, Thin Crust, Gluten Free or New York." },
+      { q: "What box does Pan go in?", a: "The black box, with a 9 by 9 liner for Pan." },
+      { q: "How many slices on a 14 inch Hand Tossed?", a: "Eight." },
+    ],
+  },
+  {
+    key: "sides", group: "Finish and quality", icon: "🍗", title: "Sides: Bread, Wings, Pasta, Sandwiches, Desserts", audience: "Everyone",
+    summary: "Boxes, parchment, applications. Easy to get wrong, easy to learn.",
+    steps: [
+      { t: "Bread Bites", d: "16 piece goes in a 9 inch side box and 32 piece in a 13 inch side box, both with 12 by 12 parchment. Garlic gets 0.5 oz garlic oil on the 16 piece and 1.0 oz on the 32. Parmesan adds a Parm shake-on (0.2 oz and 0.5 oz). Cinnamon gets Cinna Magic and icing in a dip cup packaged separately." },
+      { t: "Stuffed Cheesy Bread", d: "13 inch side box with half a sheet of parchment. Apply 0.5 oz garlic oil to the top." },
+      { t: "Boneless Chicken and Wings", d: "8 piece: 9 inch side box, 2.0 oz of wing sauce. 16 piece: 13 inch side box, 4.0 oz. 32 piece: sauce 8.0 oz, transfer both parchments to a 12 inch pizza box. Add the parchment and chicken first, then the sauce." },
+      { t: "Loaded Chicken", d: "9 inch side box with half a sheet of parchment. Classic Hot Buffalo gets 0.5 oz hot sauce." },
+      { t: "Pasta", d: "10 inch pizza box. Put in the fork with the package. Spicy Buffalo 5-Cheese Mac and Cheese only gets 0.5 oz hot sauce. Place lid on top." },
+      { t: "Oven Baked Sandwiches", d: "9 inch side box with a liner, one straight cut in half." },
+      { t: "Lava Cakes and Brownies", d: "Lava Cakes go in a 9 inch side box. At the oven, flip and set the product into the box and gently pull the tin off. Every Lava Cake order gets 0.03 oz of powdered sugar. Marbled Cookie Brownie goes in a 10 inch pizza box with 12 by 12 parchment." },
+    ],
+    best: [
+      "Read the end bake card at the cut table and keep it posted where you box.",
+      "Include the fork with pasta and the dip cup with cinnamon bread every time.",
+    ],
+    mistakes: [
+      "Sauce on wings before the parchment and chicken are in the box.",
+      "Wrong box size, especially 32 piece items.",
+      "Forgetting the icing cup or the fork.",
+    ],
+    check: [
+      { q: "Wing sauce for 8, 16 and 32 piece?", a: "2.0, 4.0 and 8.0 oz." },
+      { q: "What box for pasta and what goes in with it?", a: "10 inch pizza box with a fork." },
+      { q: "How are Lava Cakes finished?", a: "Flipped into the box at the oven, tin pulled off, 0.03 oz powdered sugar." },
+    ],
+  },
+  {
+    key: "oven", group: "Finish and quality", icon: "🔥", title: "Oven Basics", audience: "Aspiring managers",
+    summary: "What a healthy oven looks like and what to check before blaming the pizza.",
+    steps: [
+      { t: "Know your decks", d: "Count the ovens and treat each deck as its own. Settings and results can differ between decks." },
+      { t: "Check belt speed", d: "Stack two pizza disks and time them through. Start when the back of the disks enters the bake chamber and stop when the back exits. Compare to the standard for that oven and record any deck that is off." },
+      { t: "Check the fingers", d: "Look up and down into the oven from the side window and compare the finger arrangement to the oven finger guide. Clogged or covered holes and debris change how the pizza bakes." },
+      { t: "Hood and cleanliness", d: "The hood should be running. Hold a piece of paper near the filters and see if it sticks, or listen to it. Check the oven components for dirt build up." },
+      { t: "Note the settings", d: "Write down the belt speed and temperature settings shown on the display for each deck." },
+      { t: "Bake test, then adjust", d: "Bake a Hand Tossed and a sandwich to see the baseline color and temperature. If an adjustment is made, bake them again to confirm the change fixed it." },
+    ],
+    best: [
+      "If pizzas bake unevenly, check fingers and belt speed before touching dough or toppings.",
+      "Log what you changed. Fixing two things at once means you will not know which one worked.",
+    ],
+    mistakes: [
+      "Blaming the crew for a bake problem that is a dirty or misplaced oven finger.",
+      "Changing temperature and belt speed together.",
+    ],
+    check: [
+      { q: "When do you start and stop the timer for belt speed?", a: "Start when the back of the disks enters the chamber, stop when the back of the disks exits." },
+      { q: "How can you tell the hood is working?", a: "Listen to it or hold paper near the filters and watch it stick." },
+      { q: "After an oven adjustment, what do you do?", a: "Bake again to confirm it fixed the result." },
+    ],
+    note: "Built from the oven certification guide. Ask your trainer for your store's exact belt speed and temperature standard.",
+  },
+  {
+    key: "makeline", group: "Run the line", icon: "🧑‍🍳", title: "Makeline and Portion Discipline", audience: "Aspiring managers",
+    summary: "How to keep a line fast and accurate during a rush.",
+    steps: [
+      { t: "Stock the line before the rush", d: "Fill every topping, cheese and sauce container to the right level and confirm product is within date. Keep backups staged." },
+      { t: "Set the stations", d: "Screens and dough, sauce and cheese, toppings, then cut and box. Everyone should know which spot they own." },
+      { t: "Use the portion card", d: "Topping portions are on the makeline card by size. Tape it where hands can see it." },
+      { t: "Weigh to calibrate", d: "At the start of the shift and after a long slow period, weigh a few builds. Fix drift quickly." },
+      { t: "Check at the cut table", d: "The last person checks every pizza against the ticket before it goes in the box." },
+    ],
+    best: [
+      "Call out the make time for the next ticket when the line is backing up.",
+      "Replenish during the lull, not in the middle of a rush.",
+    ],
+    mistakes: [
+      "Overportioning to look generous, which kills food cost.",
+      "Letting a station run empty because nobody called for backup.",
+    ],
+    check: [
+      { q: "When do you restock the line?", a: "Before the rush and during lulls, not mid rush." },
+      { q: "Who checks the pizza against the ticket?", a: "The person at the cut table, before boxing." },
+    ],
+    note: "General best practice. The exact makeline layout for your stores is set by your manager.",
+  },
+  {
+    key: "csr", group: "Serve the customer", icon: "☎️", title: "CSR: Taking the Order", audience: "CSRs",
+    summary: "Greet, take the order accurately, repeat it back, set the right expectation.",
+    steps: [
+      { t: "Greet quickly and warmly", d: "Answer with the store greeting and your name. A friendly first ten seconds sets the tone." },
+      { t: "Ask carryout or delivery first", d: "It changes the next questions. Delivery needs a full address and phone number." },
+      { t: "Build the order in a logical order", d: "Size, crust, toppings, then sides and drinks. Use the codes you learned in the Study Guide." },
+      { t: "Offer, don't push", d: "Suggest one relevant add on, such as a side or a drink, based on what they ordered." },
+      { t: "Repeat it back", d: "Read the full order and the total back. Fix mistakes now, while they are cheap." },
+      { t: "Set the expectation", d: "Give the time estimate honestly. If the store is slammed, say so." },
+    ],
+    best: [
+      "Smile when you talk. Customers can hear it.",
+      "If you are unsure how to ring something in, ask rather than guess.",
+    ],
+    mistakes: [
+      "Skipping the repeat back.",
+      "Promising a time the kitchen cannot hit.",
+      "Not confirming the address on delivery orders.",
+    ],
+    check: [
+      { q: "What is the first question after the greeting?", a: "Carryout or delivery." },
+      { q: "Why repeat the order back?", a: "To catch mistakes while they are easy to fix." },
+    ],
+    note: "General CSR practice. Your store's greeting and procedures come from your manager.",
+  },
+  {
+    key: "delivery", group: "Serve the customer", icon: "🚗", title: "Delivery and Dispatch Basics", audience: "Drivers and aspiring managers",
+    summary: "Bag it right, route it right, hand it over right.",
+    steps: [
+      { t: "Check before it leaves", d: "Confirm the order matches the ticket, the right sides and sauces are in the bag, and everything is sealed and hot." },
+      { t: "Plan the route", d: "Group orders by area so the first delivery is not cold by the time you reach the last." },
+      { t: "Hand over with care", d: "Confirm the name, give the order, and handle payment according to your store's procedure." },
+      { t: "Close the loop", d: "Settle the order on return and let the manager know about any problems, such as a wrong address or a complaint." },
+    ],
+    best: [
+      "Safety comes first. No order is worth a rush.",
+      "Keep hot bags clean and in good shape.",
+    ],
+    mistakes: [
+      "Leaving without checking the bag.",
+      "Stacking too many stops so the last order is late.",
+    ],
+    check: [
+      { q: "What do you check before leaving the store?", a: "That the order matches the ticket and everything is sealed and hot." },
+      { q: "Why group deliveries by area?", a: "So the first order is not cold or late by the end of the run." },
+    ],
+    note: "General practice. Your store's cash handling and driver rules come from your manager.",
+  },
+];
+
+function libraryStats(lib) {
+  const done = LIBRARY_TOPICS.filter((t) => lib[t.key] && lib[t.key].practicedAt).length;
+  return { done, total: LIBRARY_TOPICS.length };
+}
+
+function Library({ lib, onOpen, onBack }) {
+  const next = LIBRARY_TOPICS.find((t) => !(lib[t.key] && lib[t.key].practicedAt));
+  const groups = [];
+  LIBRARY_TOPICS.forEach((t) => { if (!groups.includes(t.group)) groups.push(t.group); });
+  const st = libraryStats(lib);
+  return (
+    <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg, fontFamily: C.bodyFont }}>
+      <div style={{ maxWidth: 512, margin: "0 auto" }}>
+        <button onClick={onBack} style={{ background: "none", border: `1px solid ${C.panelBorder}`, color: C.textMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 10px", borderRadius: 6, cursor: "pointer", marginBottom: 20 }}>← Home</button>
+        <h1 style={{ fontFamily: C.displayFont, fontSize: 32, fontWeight: 800, color: C.white, textTransform: "uppercase", margin: "0 0 4px" }}>Pizza Library</h1>
+        <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 16 }}>Step by step guides with best practices and a quick self-check. Go in any order, at your own pace. {st.done} of {st.total} practiced.</p>
+        {next && (
+          <div onClick={() => onOpen(next.key)} style={{ cursor: "pointer", background: C.blueSoft, border: `2px solid ${C.blue}`, borderRadius: C.cardRadius, padding: 14, marginBottom: 18 }}>
+            <p style={{ color: C.textMuted, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: "0 0 2px" }}>Suggested next</p>
+            <p style={{ color: C.white, fontWeight: 700, margin: 0 }}>{next.title}</p>
+          </div>
+        )}
+        {groups.map((g) => (
+          <div key={g} style={{ marginBottom: 14 }}>
+            <p style={{ color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: "0 0 8px" }}>{g}</p>
+            {LIBRARY_TOPICS.filter((t) => t.group === g).map((t) => {
+              const done = !!(lib[t.key] && lib[t.key].practicedAt);
+              return (
+                <div key={t.key} onClick={() => onOpen(t.key)} style={{ cursor: "pointer", background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 14, marginBottom: 8, display: "flex", gap: 12, alignItems: "center" }}>
+                  <div style={{ fontSize: 24, width: 36, textAlign: "center" }}>{t.icon}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ color: C.white, fontWeight: 700, margin: 0 }}>{t.title}</p>
+                    <p style={{ color: C.textMuted, fontSize: 13, margin: "2px 0 0" }}>{t.summary}</p>
+                    <p style={{ color: C.textFaint, fontSize: 11, margin: "4px 0 0" }}>{t.audience}</p>
+                  </div>
+                  {done ? <span style={{ fontSize: 11, fontWeight: 700, color: C.green, background: C.greenSoft, padding: "2px 8px", borderRadius: 6 }}>✓ Practiced</span> : <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LibraryTopic({ topic, entry, onUpdate, onBack }) {
+  const [revealed, setRevealed] = useState({});
+  const [got, setGot] = useState({});
+  const practiced = !!(entry && entry.practicedAt);
+  const allGot = topic.check.every((_, i) => got[i]);
+  const box = { background: C.panel, border: `2px solid ${C.panelBorder}`, borderRadius: C.cardRadius, padding: 16, marginBottom: 14 };
+  const label = { color: C.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, margin: "0 0 10px" };
+  useEffect(() => { onUpdate(topic.key, { viewedAt: (entry && entry.viewedAt) || Date.now() }); }, [topic.key]);
+  return (
+    <div style={{ minHeight: "100vh", padding: "40px 24px", background: C.bg, fontFamily: C.bodyFont }}>
+      <div style={{ maxWidth: 512, margin: "0 auto" }}>
+        <button onClick={onBack} style={{ background: "none", border: `1px solid ${C.panelBorder}`, color: C.textMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 10px", borderRadius: 6, cursor: "pointer", marginBottom: 20 }}>← Library</button>
+        <h1 style={{ fontFamily: C.displayFont, fontSize: 30, fontWeight: 800, color: C.white, textTransform: "uppercase", margin: "0 0 4px" }}>{topic.title}</h1>
+        <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 18 }}>{topic.summary}</p>
+
+        <div style={box}>
+          <p style={label}>Steps</p>
+          {topic.steps.map((s, i) => (
+            <div key={i} style={{ display: "flex", gap: 12, marginBottom: i === topic.steps.length - 1 ? 0 : 14 }}>
+              <div style={{ width: 26, height: 26, borderRadius: 13, background: C.blue, color: "white", fontWeight: 800, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
+              <div style={{ flex: 1 }}>
+                <p style={{ color: C.white, fontWeight: 700, margin: "0 0 2px" }}>{s.t}</p>
+                <p style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.5, margin: 0 }}>{s.d}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={box}>
+          <p style={label}>Best practices</p>
+          {topic.best.map((b, i) => <p key={i} style={{ color: C.white, fontSize: 14, lineHeight: 1.5, margin: i ? "10px 0 0" : 0 }}>{b}</p>)}
+        </div>
+
+        <div style={box}>
+          <p style={label}>Common mistakes</p>
+          {topic.mistakes.map((b, i) => <p key={i} style={{ color: C.white, fontSize: 14, lineHeight: 1.5, margin: i ? "10px 0 0" : 0 }}>{b}</p>)}
+        </div>
+
+        <div style={{ ...box, border: `2px solid ${C.blue}` }}>
+          <p style={label}>Practice check · no timer</p>
+          <p style={{ color: C.textMuted, fontSize: 13, margin: "0 0 12px" }}>Answer out loud or on paper first, then reveal. Mark the ones you had right.</p>
+          {topic.check.map((c, i) => (
+            <div key={i} style={{ marginBottom: 14 }}>
+              <p style={{ color: C.white, fontWeight: 700, margin: "0 0 6px" }}>{c.q}</p>
+              {revealed[i] ? (
+                <div>
+                  <p style={{ color: C.textMuted, fontSize: 14, margin: "0 0 6px" }}>{c.a}</p>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => setGot({ ...got, [i]: true })} style={{ background: got[i] ? C.green : "transparent", color: got[i] ? "white" : C.textMuted, border: `1px solid ${got[i] ? C.green : C.panelBorder}`, borderRadius: 6, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Got it</button>
+                    <button onClick={() => setGot({ ...got, [i]: false })} style={{ background: "transparent", color: C.textMuted, border: `1px solid ${C.panelBorder}`, borderRadius: 6, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Review again</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => setRevealed({ ...revealed, [i]: true })} style={{ background: "transparent", color: C.blue, border: `1px solid ${C.blue}`, borderRadius: 6, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Show answer</button>
+              )}
+            </div>
+          ))}
+          <button
+            onClick={() => onUpdate(topic.key, { practicedAt: Date.now(), checks: (entry && entry.checks ? entry.checks : 0) + 1 })}
+            style={{ width: "100%", background: allGot || practiced ? C.green : C.blue, color: "white", fontWeight: 700, padding: "12px 0", borderRadius: C.btnRadius, border: "none", cursor: "pointer", marginTop: 4 }}
+          >
+            {practiced ? "✓ Practiced · tap to log another round" : allGot ? "Mark as practiced" : "Mark as practiced"}
+          </button>
+        </div>
+        {topic.note && <p style={{ color: C.textFaint, fontSize: 12 }}>{topic.note}</p>}
+      </div>
+    </div>
+  );
+}
+
 function BrokenStateScreen({ onHome }) {
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 20px", background: C.bg }}>
@@ -1992,6 +2444,9 @@ function App() {
   const [resumeState, setResumeStateVal] = useState(() => loadResumeState());
   const [hubModule, setHubModule] = useState(null);
   const [mit, setMit] = useState(() => loadMit());
+  const [lib, setLib] = useState(() => loadLibrary());
+  const [libKey, setLibKey] = useState(null);
+  const updateLib = useCallback((key, patch) => { setLib((prev) => { const next = { ...prev, [key]: { ...(prev[key] || {}), ...patch } }; saveLibrary(next); return next; }); }, []);
   const [mitSectionKey, setMitSectionKey] = useState(null);
   const [preTimerWarningScreen, setPreTimerWarningScreen] = useState("dashboard");
 
@@ -2050,7 +2505,7 @@ function App() {
   };
   const startOnboarding = () => beginCert("onboarding", generateDay1OnboardingCert());
   const startSweetHeat = () => beginCert("sweetheat", generateSweetHeatCert());
-  const startMit = () => { if (!mitAllSigned(activeTrainee)) return; beginCert("mit1", generateMitLevel1Cert()); };
+  const startMit = () => { beginCert("mit1", generateMitLevel1Cert()); };
   const openMit = () => setScreen("mithub");
 
   const openOnboarding = () => { setHubModule("onboarding"); setScreen("modulehub"); };
@@ -2148,6 +2603,8 @@ function App() {
     screen === "onboardingstudy" ||
     screen === "sweetheatstudy" ||
     screen === "mithub" ||
+    screen === "library" ||
+    (screen === "libtopic" && !!libKey) ||
     (screen === "mitsection" && !!mitSectionKey && !!activeTrainee) ||
     screen === "timerwarning" ||
     (screen === "quiz" && !!currentQuestion) ||
@@ -2168,6 +2625,8 @@ function App() {
           showSweetHeat={sweetHeatActive}
           onOpenSweetHeat={openSweetHeat}
           onOpenMit={openMit}
+          onOpenLibrary={() => setScreen("library")}
+          libraryDone={libraryStats(lib).done}
           resumeState={resumeState}
           onResume={resumeCert}
           onDiscardResume={discardResume}
@@ -2197,6 +2656,8 @@ function App() {
       {screen === "sweetheatstudy" && (
         <StudyGuide cards={SWEET_HEAT_STUDY_CARDS} accent={C.red} onFinish={() => finishModuleStudy("sweetHeatStudyViewed")} onExit={() => setScreen("modulehub")} />
       )}
+      {screen === "library" && <Library lib={lib} onOpen={(k) => { setLibKey(k); setScreen("libtopic"); }} onBack={() => setScreen("dashboard")} />}
+      {screen === "libtopic" && libKey && <LibraryTopic key={libKey} topic={LIBRARY_TOPICS.find((t) => t.key === libKey)} entry={lib[libKey]} onUpdate={updateLib} onBack={() => setScreen("library")} />}
       {screen === "mithub" && (
         <MitHub
           mit={mit}
@@ -2430,7 +2891,7 @@ function MitHub({ mit, onAddTrainee, onSelectTrainee, onRemoveTrainee, onOpenSec
   const [name, setName] = useState("");
   const [confirmRemove, setConfirmRemove] = useState(false);
   const active = mit.trainees.find((t) => t.id === mit.activeId) || null;
-  const allSigned = mitAllSigned(active);
+  const allSigned = !!active;
   const add = () => { if (!name.trim()) return; onAddTrainee(name.trim()); setName(""); };
 
   return (
@@ -2508,7 +2969,7 @@ function MitHub({ mit, onAddTrainee, onSelectTrainee, onRemoveTrainee, onOpenSec
                     Level 1 Knowledge Test
                     {active.testPassed && <span style={{ fontSize: 11, fontWeight: 700, color: C.green, background: C.greenSoft, padding: "2px 8px", borderRadius: 6 }}>✓ Passed</span>}
                   </h2>
-                  <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>{MIT_TEST_COUNT} questions · pass at 90%</p>
+                  <p style={{ color: C.textMuted, fontSize: 14, margin: "2px 0 0" }}>{MIT_TEST_COUNT} questions · pass at 90% · best after the sign-offs, but open any time</p>
                 </div>
                 <span style={{ color: C.textFaint, fontSize: 22 }}>›</span>
               </div>
